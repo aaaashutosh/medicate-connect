@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertAppointmentSchema, insertPrescriptionSchema, insertMessageSchema } from "@shared/schema";
+import { generateAIResponse } from "./gemini";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -54,6 +55,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // User profile update route
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Don't allow password updates via this route
+      if (updates.password) {
+        delete updates.password;
+      }
+      
+      const user = await storage.updateUser(id, updates);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Doctors directory routes
+  app.get("/api/doctors", async (req, res) => {
+    try {
+      const { specialty } = req.query;
+      
+      let doctors;
+      if (specialty && specialty !== "all") {
+        doctors = await storage.getDoctorsBySpecialty(specialty as string);
+      } else {
+        doctors = await storage.getDoctors();
+      }
+      
+      // Remove passwords from response
+      const doctorsWithoutPasswords = doctors.map(({ password: _, ...doctor }) => doctor);
+      res.json(doctorsWithoutPasswords);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -165,6 +210,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/conversations/:userId", async (req, res) => {
+    try {
+      const conversations = await storage.getConversationsForUser(req.params.userId);
+      res.json(conversations);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/messages", async (req, res) => {
     try {
       const messageData = insertMessageSchema.parse(req.body);
@@ -174,6 +228,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/messages/:id/read", async (req, res) => {
+    try {
+      const message = await storage.markMessageAsRead(req.params.id);
+      
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      res.json(message);
+    } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -199,6 +267,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(notification);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // AI Chat route
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { message } = req.body;
+      
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      const response = await generateAIResponse(message);
+      res.json({ response });
+    } catch (error) {
+      console.error("AI chat error:", error);
+      res.status(500).json({ message: "AI service temporarily unavailable" });
     }
   });
 

@@ -1,0 +1,45 @@
+<svg width="360" height="90" viewBox="0 0 360 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Medical Cross Icon -->
+  <g transform="translate(10, 15)">
+    <rect x="0" y="20" width="60" height="20" rx="3" fill="#8B5CF6"/>
+    <rect x="20" y="0" width="20" height="60" rx="3" fill="#8B5CF6"/>
+    <circle cx="30" cy="30" r="25" stroke="#8B5CF6" stroke-width="2" fill="none" opacity="0.3"/>
+  </g>
+  
+  <!-- Text: Medicate -->
+  <g transform="translate(90, 20)">
+    <!-- M -->
+    <path d="M0 0 L0 50 L8 50 L8 15 L18 30 L28 15 L28 50 L36 50 L36 0 L28 0 L18 20 L8 0 Z" fill="#374151"/>
+    
+    <!-- e -->
+    <path d="M50 20 Q50 15 55 15 Q65 15 65 25 L65 35 Q65 45 55 45 Q45 45 45 35 L45 25 Q45 15 55 15 Q60 15 62 18 L58 22 Q57 20 55 20 Q52 20 52 25 L52 35 Q52 40 55 40 Q58 40 58 35 L58 30 L55 30 L55 25 L65 25" fill="#374151"/>
+    
+    <!-- d -->
+    <path d="M75 0 L75 50 L82 50 L82 40 Q85 45 90 45 Q100 45 100 35 L100 25 Q100 15 90 15 Q85 15 82 20 L82 0 Z M82 25 Q82 20 87 20 Q92 20 92 25 L92 35 Q92 40 87 40 Q82 40 82 35 Z" fill="#374151"/>
+    
+    <!-- i -->
+    <path d="M110 0 L110 8 L118 8 L118 0 Z M110 15 L110 45 L118 45 L118 15 Z" fill="#374151"/>
+    
+    <!-- c -->
+    <path d="M130 25 Q130 15 140 15 Q145 15 148 18 L144 22 Q142 20 140 20 Q135 20 135 25 L135 35 Q135 40 140 40 Q142 40 144 38 L148 42 Q145 45 140 45 Q130 45 130 35 Z" fill="#374151"/>
+    
+    <!-- a -->
+    <path d="M160 45 L160 38 Q157 45 152 45 Q147 45 147 40 Q147 35 152 33 L160 31 L160 28 Q160 25 157 25 Q154 25 152 27 L148 23 Q152 15 157 15 Q167 15 167 25 L167 45 Z M160 35 L154 37 Q152 38 152 40 Q152 42 154 42 Q157 42 160 38 Z" fill="#374151"/>
+    
+    <!-- t -->
+    <path d="M177 0 L177 15 L172 15 L172 20 L177 20 L177 40 Q177 45 182 45 Q185 45 187 44 L185 39 Q184 40 182 40 Q180 40 180 38 L180 20 L187 20 L187 15 L180 15 L180 0 Z" fill="#374151"/>
+    
+    <!-- e -->
+    <path d="M200 25 Q200 15 210 15 Q220 15 220 25 L220 30 L207 30 Q207 35 210 35 Q213 35 215 33 L218 37 Q215 45 210 45 Q200 45 200 35 Z M207 25 L213 25 Q213 20 210 20 Q207 20 207 25 Z" fill="#374151"/>
+  </g>
+  
+  <!-- Subtle gradient overlay -->
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#6366F1;stop-opacity:0.1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="360" height="90" fill="url(#logoGradient)" rx="5"/>
+</svg>

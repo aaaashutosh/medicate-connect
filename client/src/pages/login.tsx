@@ -31,7 +31,7 @@ export default function Login() {
         title: "Login successful",
         description: "Welcome back to Medicate!",
       });
-      setLocation("/dashboard");
+      setLocation("/profile");
     } catch (error) {
       toast({
         title: "Login failed",
@@ -52,7 +52,7 @@ export default function Login() {
         title: "Demo login successful",
         description: `Logged in as demo ${role}`,
       });
-      setLocation("/dashboard");
+      setLocation("/profile");
     } catch (error) {
       toast({
         title: "Demo login failed",

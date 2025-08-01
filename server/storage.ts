@@ -17,6 +17,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  getDoctors(): Promise<User[]>;
+  getDoctorsBySpecialty(specialty: string): Promise<User[]>;
   
   // Appointments
   getAppointmentsByPatient(patientId: string): Promise<Appointment[]>;
@@ -32,6 +35,7 @@ export interface IStorage {
   
   // Messages
   getMessagesBetweenUsers(userId1: string, userId2: string): Promise<Message[]>;
+  getConversationsForUser(userId: string): Promise<Array<{user: User, lastMessage: Message, unreadCount: number}>>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message | undefined>;
   
@@ -70,10 +74,11 @@ export class MemStorage implements IStorage {
       role: "patient" as const,
       name: "John Doe",
       phone: "+1-234-567-8900",
+      profilePicture: null,
     });
 
-    // Sample doctor
-    const doctor = this.createUserSync({
+    // Sample doctors with different specialties
+    const doctor1 = this.createUserSync({
       email: "doctor@medicate.com",
       password: "password123",
       role: "doctor" as const,
@@ -81,12 +86,58 @@ export class MemStorage implements IStorage {
       phone: "+1-234-567-8901",
       specialty: "Cardiologist",
       license: "MD-98765",
+      experience: 15,
+      rating: 5,
+      isAvailable: true,
+      profilePicture: null,
+    });
+
+    const doctor2 = this.createUserSync({
+      email: "doctor2@medicate.com",
+      password: "password123",
+      role: "doctor" as const,
+      name: "Dr. Michael Chen",
+      phone: "+1-234-567-8902",
+      specialty: "Dermatologist",
+      license: "MD-87654",
+      experience: 12,
+      rating: 5,
+      isAvailable: true,
+      profilePicture: null,
+    });
+
+    const doctor3 = this.createUserSync({
+      email: "doctor3@medicate.com",
+      password: "password123",
+      role: "doctor" as const,
+      name: "Dr. Emily Rodriguez",
+      phone: "+1-234-567-8903",
+      specialty: "Pediatrician",
+      license: "MD-76543",
+      experience: 8,
+      rating: 4,
+      isAvailable: true,
+      profilePicture: null,
+    });
+
+    const doctor4 = this.createUserSync({
+      email: "doctor4@medicate.com",
+      password: "password123",
+      role: "doctor" as const,
+      name: "Dr. Robert Wilson",
+      phone: "+1-234-567-8904",
+      specialty: "Orthopedic",
+      license: "MD-65432",
+      experience: 20,
+      rating: 5,
+      isAvailable: false,
+      profilePicture: null,
     });
 
     // Sample appointment
     const appointment = this.createAppointmentSync({
       patientId: patient.id,
-      doctorId: doctor.id,
+      doctorId: doctor1.id,
       date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
       duration: 30,
       reason: "Annual Checkup",
@@ -96,7 +147,7 @@ export class MemStorage implements IStorage {
     // Sample prescription
     this.createPrescriptionSync({
       patientId: patient.id,
-      doctorId: doctor.id,
+      doctorId: doctor1.id,
       appointmentId: appointment.id,
       medication: "Lisinopril",
       dosage: "10mg",
@@ -106,6 +157,23 @@ export class MemStorage implements IStorage {
       status: "active" as const,
       startDate: new Date(),
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+
+    // Sample messages
+    this.createMessageSync({
+      senderId: patient.id,
+      receiverId: doctor1.id,
+      content: "Hello Dr. Johnson, I have a question about my blood pressure medication.",
+      messageType: "text" as const,
+      isRead: false,
+    });
+
+    this.createMessageSync({
+      senderId: doctor1.id,
+      receiverId: patient.id,
+      content: "Hello John! I'd be happy to help. What specific concerns do you have?",
+      messageType: "text" as const,
+      isRead: true,
     });
 
     // Sample notification
@@ -126,6 +194,10 @@ export class MemStorage implements IStorage {
       specialty: insertUser.specialty || null,
       license: insertUser.license || null,
       phone: insertUser.phone || null,
+      profilePicture: insertUser.profilePicture || null,
+      experience: insertUser.experience || null,
+      rating: insertUser.rating || 5,
+      isAvailable: insertUser.isAvailable ?? true,
     };
     this.users.set(id, user);
     return user;
@@ -160,6 +232,19 @@ export class MemStorage implements IStorage {
     return prescription;
   }
 
+  private createMessageSync(insertMessage: InsertMessage): Message {
+    const id = randomUUID();
+    const message: Message = { 
+      ...insertMessage,
+      messageType: insertMessage.messageType || "text" as const,
+      isRead: insertMessage.isRead || false,
+      id, 
+      createdAt: new Date(),
+    };
+    this.messages.set(id, message);
+    return message;
+  }
+
   private createNotificationSync(insertNotification: InsertNotification): Notification {
     const id = randomUUID();
     const notification: Notification = { 
@@ -182,6 +267,57 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     return this.createUserSync(insertUser);
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (user) {
+      const updatedUser = { ...user, ...updates };
+      this.users.set(id, updatedUser);
+      return updatedUser;
+    }
+    return undefined;
+  }
+
+  async getDoctors(): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => user.role === "doctor");
+  }
+
+  async getDoctorsBySpecialty(specialty: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(
+      user => user.role === "doctor" && user.specialty === specialty
+    );
+  }
+
+  async getConversationsForUser(userId: string): Promise<Array<{user: User, lastMessage: Message, unreadCount: number}>> {
+    const userMessages = Array.from(this.messages.values()).filter(
+      message => message.senderId === userId || message.receiverId === userId
+    );
+
+    const conversationMap = new Map<string, {user: User, lastMessage: Message, unreadCount: number}>();
+
+    for (const message of userMessages) {
+      const otherUserId = message.senderId === userId ? message.receiverId : message.senderId;
+      const otherUser = this.users.get(otherUserId);
+      
+      if (otherUser) {
+        const existing = conversationMap.get(otherUserId);
+        const unreadCount = (existing?.unreadCount || 0) + 
+          (message.receiverId === userId && !message.isRead ? 1 : 0);
+        
+        if (!existing || (message.createdAt || new Date()) > (existing.lastMessage.createdAt || new Date())) {
+          conversationMap.set(otherUserId, {
+            user: otherUser,
+            lastMessage: message,
+            unreadCount
+          });
+        }
+      }
+    }
+
+    return Array.from(conversationMap.values()).sort(
+      (a, b) => (b.lastMessage.createdAt || new Date()).getTime() - (a.lastMessage.createdAt || new Date()).getTime()
+    );
   }
 
   async getAppointmentsByPatient(patientId: string): Promise<Appointment[]> {

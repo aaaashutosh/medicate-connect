@@ -1,19 +1,27 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Heart, Menu } from "lucide-react";
+import { Moon, Sun, Menu } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import logoSvg from "@/assets/logo.svg";
 
 export default function Navbar() {
   const [location] = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
 
-  const navItems = [
+  const navItems = user ? [
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/doctors", label: "Doctors" },
+    { href: "/messages", label: "Messages" },
+    { href: "/support", label: "Support" },
+  ] : [
+    { href: "/", label: "Home" },
+    { href: "/about", label: "About" },
+    { href: "/doctors", label: "Doctors" },
     { href: "/support", label: "Support" },
   ];
 
@@ -40,9 +48,13 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <Heart className="h-8 w-8 text-medicate-primary animate-heartbeat" />
-            <span className="text-xl font-bold text-gray-800 dark:text-gray-200">Medicate</span>
+          <Link href="/" className="flex items-center">
+            <img 
+              src={logoSvg} 
+              alt="Medicate" 
+              className="h-10 w-auto"
+              style={{ maxWidth: "180px" }}
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -67,9 +79,9 @@ export default function Navbar() {
 
             {user ? (
               <div className="hidden md:flex items-center space-x-4">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <Link href="/profile" className="text-sm text-gray-600 dark:text-gray-400 hover:text-medicate-primary transition-colors cursor-pointer">
                   {user.name}
-                </span>
+                </Link>
                 <Button variant="outline" onClick={logout}>
                   Logout
                 </Button>
@@ -94,9 +106,9 @@ export default function Navbar() {
                   <NavLinks mobile />
                   {user ? (
                     <div className="pt-4 border-t">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <Link href="/profile" className="block text-sm text-gray-600 dark:text-gray-400 mb-2 hover:text-medicate-primary transition-colors">
                         {user.name}
-                      </p>
+                      </Link>
                       <Button variant="outline" onClick={logout} className="w-full">
                         Logout
                       </Button>

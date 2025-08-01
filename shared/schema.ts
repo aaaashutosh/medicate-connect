@@ -10,8 +10,12 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["patient", "doctor"] }).notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
+  profilePicture: text("profile_picture"), // URL to profile image
   specialty: text("specialty"), // For doctors
   license: text("license"), // For doctors
+  experience: integer("experience"), // Years of experience for doctors
+  rating: integer("rating").default(5), // Doctor rating 1-5
+  isAvailable: boolean("is_available").default(true), // Doctor availability
   createdAt: timestamp("created_at").defaultNow(),
 });
 
