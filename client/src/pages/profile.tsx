@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { apiRequest } from "@/lib/queryClient";
 import { User, Star, Phone, Mail, Calendar, Award } from "lucide-react";
 
 export default function ProfilePage() {
@@ -26,10 +25,15 @@ export default function ProfilePage() {
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: Partial<typeof formData>) => {
       if (!user) throw new Error("No user found");
-      return apiRequest(`/api/users/${user.id}`, {
+      const response = await fetch(`/api/users/${user.id}`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
+      if (!response.ok) {
+        throw new Error("Failed to update profile");
+      }
+      return response.json();
     },
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
@@ -53,14 +57,36 @@ export default function ProfilePage() {
     updateProfileMutation.mutate(formData);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // For demo purposes, we'll use a placeholder URL
-      // In a real app, you'd upload to a file storage service
-      const mockUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&size=200&background=8B5CF6&color=fff`;
-      setFormData(prev => ({ ...prev, profilePicture: mockUrl }));
-      updateProfileMutation.mutate({ profilePicture: mockUrl });
+      const formDataUpload = new FormData();
+      formDataUpload.append('profilePicture', file);
+
+      try {
+        const response = await fetch('/api/upload/profile-picture', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({ ...prev, profilePicture: data.url }));
+          updateProfileMutation.mutate({ profilePicture: data.url });
+        } else {
+          toast({
+            title: "Upload Failed",
+            description: "Failed to upload profile picture. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload profile picture. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

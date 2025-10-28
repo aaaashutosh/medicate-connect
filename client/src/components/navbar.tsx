@@ -1,131 +1,154 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, Menu, Shield } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import logoSvg from "@/assets/logo.svg";
 
-export default function Navbar() {
-  const [location] = useLocation();
-  const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  export default function Navbar() {
+    const [location] = useLocation();
+    const { theme, toggleTheme } = useTheme();
+    const { user, logout } = useAuth();
 
-  const navItems = user ? [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/doctors", label: "Doctors" },
-    { href: "/messages", label: "Messages" },
-    { href: "/support", label: "Support" },
-  ] : [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/doctors", label: "Doctors" },
-    { href: "/support", label: "Support" },
-  ];
+    const navItems = user ? [
+      { href: "/", label: "Home" },
+      { href: "/about", label: "About" },
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/doctors", label: "Doctors" },
+      { href: "/messages", label: "Messages" },
+      { href: "/support", label: "Support" },
+      ...(user.role === 'admin' ? [{ href: "/admin", label: "Admin" }] : []),
+    ] : [
+      { href: "/", label: "Home" },
+      { href: "/about", label: "About" },
+      { href: "/doctors", label: "Doctors" },
+      { href: "/support", label: "Support" },
+    ];
 
-  const NavLinks = ({ mobile = false }: { mobile?: boolean }) => (
-    <>
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={`${
-            mobile ? "block py-2" : ""
-          } text-gray-700 dark:text-gray-300 hover:text-medicate-primary dark:hover:text-medicate-secondary transition-colors ${
-            location === item.href ? "text-medicate-primary dark:text-medicate-secondary font-medium" : ""
-          }`}
-        >
-          {item.label}
-        </Link>
-      ))}
-    </>
-  );
-
-  return (
-    <nav className="bg-white dark:bg-card shadow-sm border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <img 
-              src={logoSvg} 
-              alt="Medicate" 
-              className="h-10 w-auto"
-              style={{ maxWidth: "180px" }}
-            />
+    const NavLinks = ({ mobile = false }: { mobile?: boolean }) => (
+      <>
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`${
+              mobile ? "block py-2" : ""
+            } text-gray-700 dark:text-gray-300 hover:text-medicate-primary dark:hover:text-medicate-secondary transition-colors ${
+              location === item.href ? "text-medicate-primary dark:text-medicate-secondary font-medium" : ""
+            }`}
+          >
+            {item.label}
           </Link>
+        ))}
+      </>
+    );
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <NavLinks />
-          </div>
+    return (
+      <nav className="bg-white dark:bg-card shadow-sm border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center">
+              <img
+                src={logoSvg}
+                alt="Medicate"
+                className="h-10 w-auto"
+                style={{ maxWidth: "180px" }}
+              />
 
-          {/* Actions */}
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              {theme === "light" ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </Button>
+            </Link>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              <NavLinks />
+            </div>
 
-            {user ? (
-              <div className="hidden md:flex items-center space-x-4">
-                <Link href="/profile" className="text-sm text-gray-600 dark:text-gray-400 hover:text-medicate-primary transition-colors cursor-pointer">
-                  {user.name}
-                </Link>
-                <Button variant="outline" onClick={logout}>
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <div className="hidden md:block">
-                <Link href="/login">
-                  <Button className="btn-primary">Login</Button>
-                </Link>
-              </div>
-            )}
+            {/* Actions */}
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                {theme === "light" ? (
+                  <Moon className="h-5 w-5" />
+                ) : (
+                  <Sun className="h-5 w-5" />
+                )}
+              </Button>
 
-            {/* Mobile Menu */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <div className="flex flex-col space-y-4 mt-8">
-                  <NavLinks mobile />
-                  {user ? (
-                    <div className="pt-4 border-t">
-                      <Link href="/profile" className="block text-sm text-gray-600 dark:text-gray-400 mb-2 hover:text-medicate-primary transition-colors">
-                        {user.name}
-                      </Link>
-                      <Button variant="outline" onClick={logout} className="w-full">
-                        Logout
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t">
-                      <Link href="/login" className="w-full">
-                        <Button className="w-full btn-primary">Login</Button>
-                      </Link>
-                    </div>
+              {user ? (
+                <div className="hidden md:flex items-center space-x-4">
+                  {user.role === 'admin' && (
+                    <Link href="/admin" className="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-medicate-primary transition-colors">
+                      <Shield className="h-4 w-4 mr-1" />
+                      Admin
+                    </Link>
                   )}
+                  <Link href="/profile" className="text-sm text-gray-600 dark:text-gray-400 hover:text-medicate-primary transition-colors cursor-pointer">
+                    {user.name}
+                  </Link>
+                  <Button variant="outline" onClick={logout}>
+                    Logout
+                  </Button>
                 </div>
-              </SheetContent>
-            </Sheet>
+              ) : (
+                <div className="hidden md:flex items-center space-x-2">
+                  <Link href="/signup">
+                    <Button variant="outline" className="border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark">
+                      Sign Up
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button className="btn-primary">Login</Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Mobile Menu */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <div className="flex flex-col space-y-4 mt-8">
+                    <NavLinks mobile />
+                    {user ? (
+                      <div className="pt-4 border-t">
+                        {user.role === 'admin' && (
+                          <Link href="/admin" className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2 hover:text-medicate-primary transition-colors">
+                            <Shield className="h-4 w-4 mr-1" />
+                            Admin Panel
+                          </Link>
+                        )}
+                        <Link href="/profile" className="block text-sm text-gray-600 dark:text-gray-400 mb-2 hover:text-medicate-primary transition-colors">
+                          {user.name}
+                        </Link>
+                        <Button variant="outline" onClick={logout} className="w-full">
+                          Logout
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="pt-4 border-t">
+                        <Link href="/signup" className="w-full mb-2">
+                          <Button variant="outline" className="w-full border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark">
+                            Sign Up
+                          </Button>
+                        </Link>
+                        <Link href="/login" className="w-full">
+                          <Button className="w-full btn-primary">Login</Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
-  );
-}
+      </nav>
+    );
+  }

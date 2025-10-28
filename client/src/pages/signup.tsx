@@ -4,59 +4,58 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Heart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
-export default function Login() {
+export default function Signup() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState<"patient" | "doctor">("patient");
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
-    rememberMe: false
+    confirmPassword: ""
   });
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
 
-    try {
-      await login(formData.email, formData.password);
+    // Basic validation
+    if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Login successful",
-        description: "Welcome back to Medicate!",
-      });
-      setLocation("/profile");
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Invalid email or password. Please try again.",
+        title: "Password mismatch",
+        description: "Passwords do not match. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  };
 
-  const handleDemoLogin = async (role: "patient" | "doctor") => {
-    setIsLoading(true);
-    try {
-      const email = role === "patient" ? "sagar.bangdel@medicate.com" : "sushila.devi.singh@medicateconnect.com";
-      await login(email, "password123");
+    if (formData.password.length < 6) {
       toast({
-        title: "Demo login successful",
-        description: `Logged in as demo ${role}`,
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
       });
-      setLocation("/profile");
-    } catch (error) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await signup(formData.name, formData.email, formData.password, selectedRole);
       toast({
-        title: "Demo login failed",
-        description: "Please try again later.",
+        title: "Account created successfully",
+        description: "Please log in with your new account.",
+      });
+      setLocation("/login");
+    } catch (error: any) {
+      toast({
+        title: "Signup failed",
+        description: error.message || "An error occurred during signup. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -73,8 +72,8 @@ export default function Login() {
               <Heart className="h-8 w-8 text-medicate-primary animate-heartbeat" />
               <span className="text-2xl font-bold text-gray-800 dark:text-gray-200">Medicate</span>
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Welcome Back</h2>
-            <p className="text-gray-600 dark:text-gray-400">Sign in to access your healthcare dashboard</p>
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Create Account</h2>
+            <p className="text-gray-600 dark:text-gray-400">Join Medicate to access healthcare services</p>
           </div>
 
           {/* Role Toggle */}
@@ -105,6 +104,19 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="mt-1"
+              />
+            </div>
+
+            <div>
               <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
               <Input
                 id="email"
@@ -122,7 +134,7 @@ export default function Login() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Create a password (min. 6 characters)"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
@@ -130,57 +142,29 @@ export default function Login() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={formData.rememberMe}
-                  onCheckedChange={(checked) => setFormData({ ...formData, rememberMe: checked as boolean })}
-                />
-                <Label htmlFor="remember" className="text-sm text-gray-600 dark:text-gray-400">
-                  Remember me
-                </Label>
-              </div>
-              <Button variant="link" className="text-sm text-medicate-primary hover:text-medicate-dark p-0">
-                Forgot password?
-              </Button>
+            <div>
+              <Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                required
+                className="mt-1"
+              />
             </div>
 
             <Button type="submit" disabled={isLoading} className="w-full btn-primary">
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
 
-          {/* Demo Login Buttons */}
-          <div className="mt-6 space-y-2">
-            <div className="text-center text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Or try demo access:
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleDemoLogin("patient")}
-              disabled={isLoading}
-              className="w-full border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
-            >
-              Demo Patient Login
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleDemoLogin("doctor")}
-              disabled={isLoading}
-              className="w-full border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
-            >
-              Demo Doctor Login
-            </Button>
-          </div>
-
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{" "}
-              <Button variant="link" onClick={() => setLocation("/signup")} className="text-medicate-primary hover:text-medicate-dark p-0">
-                Sign up here
+              Already have an account?{" "}
+              <Button variant="link" onClick={() => setLocation("/login")} className="text-medicate-primary hover:text-medicate-dark p-0">
+                Sign in here
               </Button>
             </p>
           </div>

@@ -7,7 +7,7 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role", { enum: ["patient", "doctor"] }).notNull(),
+  role: text("role", { enum: ["patient", "doctor", "admin"] }).notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
   profilePicture: text("profile_picture"), // URL to profile image
@@ -28,6 +28,10 @@ export const appointments = pgTable("appointments", {
   reason: text("reason").notNull(),
   status: text("status", { enum: ["scheduled", "completed", "cancelled"] }).notNull().default("scheduled"),
   notes: text("notes"),
+  paymentAmount: integer("payment_amount").default(100000), // Amount in paisa (1000 NPR)
+  paymentStatus: text("payment_status", { enum: ["pending", "paid", "failed"] }).notNull().default("pending"),
+  paymentMethod: text("payment_method").default("esewa"),
+  paymentRef: text("payment_ref"), // eSewa transaction reference
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -53,7 +57,8 @@ export const messages = pgTable("messages", {
   receiverId: varchar("receiver_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   messageType: text("message_type", { enum: ["text", "image", "voice", "file"] }).notNull().default("text"),
-  isRead: boolean("is_read").notNull().default(false),
+  read: boolean("read").notNull().default(false),
+  timestamp: text("timestamp").default(sql`CURRENT_TIMESTAMP::text`),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -73,7 +78,9 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
-export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+export const insertAppointmentSchema = createInsertSchema(appointments, {
+  date: z.coerce.date(),
+}).omit({
   id: true,
   createdAt: true,
 });

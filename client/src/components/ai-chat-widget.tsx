@@ -30,10 +30,15 @@ export default function AIChatWidget() {
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      return apiRequest("/api/ai/chat", {
+      const res = await fetch("/api/ai/chat", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
+      if (!res.ok) {
+        throw new Error("Failed to get AI response");
+      }
+      return res.json();
     },
     onSuccess: (data) => {
       const aiMessage: Message = {
@@ -79,13 +84,34 @@ export default function AIChatWidget() {
     <>
       {/* Chat Toggle Button */}
       {!isOpen && (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-medicate-primary hover:bg-medicate-dark shadow-lg z-50"
-          size="sm"
-        >
-          <MessageSquare className="h-6 w-6" />
-        </Button>
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center space-y-2">
+          {/* Cartoon Character with Speech Bubble */}
+          <div className="relative">
+            {/* Speech Bubble */}
+            <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white text-medicate-primary px-3 py-1 rounded-lg shadow-lg border-2 border-medicate-primary">
+              <div className="text-sm font-semibold">Hi!</div>
+              {/* Speech bubble pointer */}
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
+            </div>
+            {/* Character Image */}
+            <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-white shadow-lg" style={{ animation: 'float 3s ease-in-out infinite' }}>
+              <img
+                src="https://andromeda-rouge.vercel.app/assets/aiavatar-3do2E5dF.png"
+                alt="AI Assistant"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Chat Button */}
+          <Button
+            onClick={() => setIsOpen(true)}
+            className="h-14 w-14 rounded-full bg-gradient-to-r from-medicate-primary to-medicate-dark hover:from-medicate-dark hover:to-medicate-primary shadow-xl transform hover:scale-110 transition-all duration-300"
+            size="sm"
+          >
+            <MessageSquare className="h-6 w-6 text-white" />
+          </Button>
+        </div>
       )}
 
       {/* Chat Widget */}

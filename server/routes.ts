@@ -1,11 +1,54 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import express from "express";
 import { storage } from "./storage";
 import { insertUserSchema, insertAppointmentSchema, insertPrescriptionSchema, insertMessageSchema } from "@shared/schema";
 import { generateAIResponse } from "./gemini";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure multer for file uploads
+  const upload = multer({
+    dest: 'uploads/',
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed!'));
+      }
+    }
+  });
+
+  // Ensure uploads directory exists
+  if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+  }
+
+  // File upload route
+  app.post("/api/upload/profile-picture", upload.single('profilePicture'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ message: "File upload failed" });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -88,17 +131,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/doctors", async (req, res) => {
     try {
       const { specialty } = req.query;
-      
+
       let doctors;
       if (specialty && specialty !== "all") {
         doctors = await storage.getDoctorsBySpecialty(specialty as string);
       } else {
         doctors = await storage.getDoctors();
       }
-      
+
       // Remove passwords from response
       const doctorsWithoutPasswords = doctors.map(({ password: _, ...doctor }) => doctor);
       res.json(doctorsWithoutPasswords);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      // TODO: Add admin authentication middleware
+      const users = await storage.getAllUsers();
+      // Remove passwords from response
+      const usersWithoutPasswords = users.map(({ password: _, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/doctors", async (req, res) => {
+    try {
+      // TODO: Add admin authentication middleware
+      const doctorData = insertUserSchema.parse(req.body);
+      const doctor = await storage.createUser(doctorData);
+      const { password: _, ...doctorWithoutPassword } = doctor;
+      res.status(201).json(doctorWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/admin/doctors/:id", async (req, res) => {
+    try {
+      // TODO: Add admin authentication middleware
+      const { id } = req.params;
+      const updates = req.body;
+
+      // Don't allow password updates via this route
+      if (updates.password) {
+        delete updates.password;
+      }
+
+      const doctor = await storage.updateUser(id, updates);
+
+      if (!doctor) {
+        return res.status(404).json({ message: "Doctor not found" });
+      }
+
+      const { password: _, ...doctorWithoutPassword } = doctor;
+      res.json(doctorWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/doctors/:id", async (req, res) => {
+    try {
+      // TODO: Add admin authentication middleware
+      const { id } = req.params;
+      const success = await storage.deleteUser(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Doctor not found" });
+      }
+
+      res.json({ message: "Doctor deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -140,6 +251,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/appointments/:id", async (req, res) => {
+    try {
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      res.json(appointment);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/appointments", async (req, res) => {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
@@ -150,6 +273,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Payment routes
+  app.post("/api/payments/initiate", async (req, res) => {
+    try {
+      const { appointmentId } = req.body;
+
+      if (!appointmentId) {
+        return res.status(400).json({ message: "Appointment ID is required" });
+      }
+
+      // Get appointment details
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Check if payment is already completed
+      if (appointment.paymentStatus === "paid") {
+        return res.status(400).json({ message: "Payment already completed" });
+      }
+
+      // eSewa test configuration
+      const merchantCode = "EPAYTEST";
+      const amount = appointment.paymentAmount || 100000; // Default to 1000 NPR in paisa
+      const taxAmount = 0;
+      const serviceCharge = 0;
+      const deliveryCharge = 0;
+      const totalAmount = amount + taxAmount + serviceCharge + deliveryCharge;
+      const productServiceCharge = 0;
+      const productDeliveryCharge = 0;
+      const successUrl = `${req.protocol}://${req.get('host')}/api/payments/verify?status=success&appointmentId=${appointmentId}`;
+      const failureUrl = `${req.protocol}://${req.get('host')}/api/payments/verify?status=failure&appointmentId=${appointmentId}`;
+      const signedFieldNames = "total_amount,transaction_uuid,product_code";
+      const secret = "8gBm/:&EnhH.1/q"; // eSewa test secret
+
+      // Generate transaction UUID
+      const transactionUuid = `txn_${appointmentId}_${Date.now()}`;
+
+      // Create signature
+      const message = `total_amount=${totalAmount},transaction_uuid=${transactionUuid},product_code=${merchantCode}`;
+      const crypto = await import('crypto');
+      const signature = crypto.createHmac('sha256', secret).update(message).digest('base64');
+
+      // eSewa payment URL
+      const paymentUrl = `https://rc-epay.esewa.com.np/api/epay/main/v2/form`;
+
+      res.json({
+        paymentUrl,
+        formData: {
+          amount: totalAmount,
+          tax_amount: taxAmount,
+          total_amount: totalAmount,
+          transaction_uuid: transactionUuid,
+          product_code: merchantCode,
+          product_service_charge: productServiceCharge,
+          product_delivery_charge: productDeliveryCharge,
+          success_url: successUrl,
+          failure_url: failureUrl,
+          signed_field_names: signedFieldNames,
+          signature
+        }
+      });
+    } catch (error) {
+      console.error("Payment initiation error:", error);
+      res.status(500).json({ message: "Payment initiation failed" });
+    }
+  });
+
+  app.get("/api/payments/verify", async (req, res) => {
+    try {
+      const { status, appointmentId, total_amount, transaction_uuid, product_code, signed_field_names, signature } = req.query;
+
+      if (!appointmentId) {
+        return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=no_appointment_id`);
+      }
+
+      const appointment = await storage.getAppointment(appointmentId as string);
+      if (!appointment) {
+        return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=appointment_not_found`);
+      }
+
+      if (status === "success") {
+        // Verify signature for security
+        const secret = "8gBm/:&EnhH.1/q";
+        const message = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
+        const crypto = await import('crypto');
+        const expectedSignature = crypto.createHmac('sha256', secret).update(message).digest('base64');
+
+        if (signature !== expectedSignature) {
+          console.error("Signature verification failed");
+          await storage.updateAppointmentPaymentStatus(appointmentId as string, "failed", transaction_uuid as string);
+          return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=signature_failed`);
+        }
+
+        // Update appointment payment status
+        await storage.updateAppointmentPaymentStatus(appointmentId as string, "paid", transaction_uuid as string);
+
+        // Redirect to success page
+        res.redirect(`${req.protocol}://${req.get('host')}/?payment_success=true&appointment_id=${appointmentId}`);
+      } else {
+        // Payment failed
+        await storage.updateAppointmentPaymentStatus(appointmentId as string, "failed", transaction_uuid as string || "");
+
+        // Redirect to failure page
+        res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=payment_failed&appointment_id=${appointmentId}`);
+      }
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      res.status(500).json({ message: "Payment verification failed" });
     }
   });
 
@@ -286,6 +520,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "AI service temporarily unavailable" });
     }
   });
+
+  // WebRTC Signaling Routes for Audio/Video Calls
+  app.post("/api/call/initiate", async (req, res) => {
+    try {
+      const { callerId, receiverId, callType } = req.body;
+      
+      // Verify both users exist
+      const caller = await storage.getUser(callerId);
+      const receiver = await storage.getUser(receiverId);
+      
+      if (!caller || !receiver) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // In a real implementation, you would use a WebSocket or similar
+      // to notify the receiver about the incoming call
+      // For now, we'll just return success
+      res.json({
+        success: true,
+        callId: `call_${Date.now()}`,
+        caller,
+        receiver,
+        callType
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/call/offer", async (req, res) => {
+    try {
+      const { callId, offer, senderId, receiverId } = req.body;
+      
+      // In a real implementation, you would use a WebSocket or similar
+      // to send the offer to the receiver
+      // For now, we'll just return success
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/call/answer", async (req, res) => {
+    try {
+      const { callId, answer, senderId, receiverId } = req.body;
+      
+      // In a real implementation, you would use a WebSocket or similar
+      // to send the answer to the caller
+      // For now, we'll just return success
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/call/ice-candidate", async (req, res) => {
+    try {
+      const { callId, candidate, senderId, receiverId } = req.body;
+      
+      // In a real implementation, you would use a WebSocket or similar
+      // to send the ICE candidate to the other peer
+      // For now, we'll just return success
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/call/end", async (req, res) => {
+    try {
+      const { callId, userId } = req.body;
+      
+      // In a real implementation, you would use a WebSocket or similar
+      // to notify the other participant that the call has ended
+      // For now, we'll just return success
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Serve uploaded files statically
+  app.use('/uploads', express.static('uploads'));
 
   const httpServer = createServer(app);
   return httpServer;

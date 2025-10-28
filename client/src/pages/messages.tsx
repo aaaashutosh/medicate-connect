@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Send, Phone, Video, MoreVertical, Search } from "lucide-react";
+import CallModal from "@/components/call-modal";
 import type { User, Message } from "@shared/schema";
 
 interface Conversation {
@@ -23,6 +24,8 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<User | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [callType, setCallType] = useState<"audio" | "video">("audio");
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,9 +58,12 @@ export default function MessagesPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!user || !selectedConversation) throw new Error("No user or conversation selected");
-      
-      return apiRequest("/api/messages", {
+
+      const response = await fetch("/api/messages", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           senderId: user.id,
           receiverId: selectedConversation.id,
@@ -65,13 +71,20 @@ export default function MessagesPage() {
           messageType: "text",
         }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       setMessageInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/messages", user?.id, selectedConversation?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", user?.id] });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Send message error:", error);
       toast({
         title: "Failed to send message",
         description: "Please try again later.",
@@ -93,22 +106,15 @@ export default function MessagesPage() {
   };
 
   const handleCall = (targetUser: User) => {
-    if (targetUser.phone) {
-      window.open(`tel:${targetUser.phone}`, '_blank');
-    } else {
-      toast({
-        title: "Call Unavailable",
-        description: "Phone number not available.",
-        variant: "destructive",
-      });
-    }
+    if (!user) return;
+    setCallType("audio");
+    setIsCallModalOpen(true);
   };
 
   const handleVideoCall = (targetUser: User) => {
-    toast({
-      title: "Video Call",
-      description: `Starting video call with ${targetUser.name}. This feature will be available soon.`,
-    });
+    if (!user) return;
+    setCallType("video");
+    setIsCallModalOpen(true);
   };
 
   const filteredConversations = conversations.filter(conv =>
@@ -140,6 +146,7 @@ export default function MessagesPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-12 gap-6 h-[calc(100vh-8rem)]">
@@ -229,6 +236,44 @@ export default function MessagesPage() {
                   <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                     <p>No conversations yet</p>
                     <p className="text-sm mt-1">Start a conversation with a doctor</p>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs text-gray-400">Suggested doctors to chat with:</p>
+                      <div className="flex flex-col space-y-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedConversation({ id: 'doctor1', name: 'Sushila Devi Singh', role: 'doctor' as const, specialty: 'Cardiologist', email: 'sushila.devi.singh@medicateconnect.com', password: '12345', phone: '+977 9876543210', experience: 8, license: 'MD123456', rating: 5, isAvailable: true, profilePicture: null, createdAt: null })}
+                          className="justify-start"
+                        >
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarFallback className="bg-medicate-light text-white text-xs">SD</AvatarFallback>
+                          </Avatar>
+                          Sushila Devi Singh - Cardiologist
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedConversation({ id: 'doctor2', name: 'Upendra Devkota', role: 'doctor' as const, specialty: 'Dermatologist', email: 'upendra.devkota@medicateconnect.com', password: '12345', phone: '+977 9876543211', experience: 10, license: 'MD123457', rating: 5, isAvailable: true, profilePicture: null, createdAt: null })}
+                          className="justify-start"
+                        >
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarFallback className="bg-medicate-light text-white text-xs">UD</AvatarFallback>
+                          </Avatar>
+                          Upendra Devkota - Dermatologist
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedConversation({ id: 'doctor3', name: 'Sanjay Rathi', role: 'doctor' as const, specialty: 'Pediatrician', email: 'sanjay.rathi@medicateconnect.com', password: '12345', phone: '+977 9876543212', experience: 12, license: 'MD123458', rating: 5, isAvailable: true, profilePicture: null, createdAt: null })}
+                          className="justify-start"
+                        >
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarFallback className="bg-medicate-light text-white text-xs">SR</AvatarFallback>
+                          </Avatar>
+                          Sanjay Rathi - Pediatrician
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </ScrollArea>
@@ -380,5 +425,22 @@ export default function MessagesPage() {
         </div>
       </div>
     </div>
+    
+    <CallModal
+      isOpen={isCallModalOpen}
+      onClose={() => setIsCallModalOpen(false)}
+      callerName={user?.name || "You"}
+      receiverName={selectedConversation?.name || "Doctor"}
+      callerId={user?.id || ""}
+      receiverId={selectedConversation?.id || ""}
+      callType={callType}
+      onCallEnd={() => {
+        toast({
+          title: "Call ended",
+          description: `Your ${callType} call with ${selectedConversation?.name} has ended`,
+        });
+      }}
+    />
+    </>
   );
 }

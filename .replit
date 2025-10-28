@@ -16,6 +16,7 @@ externalPort = 80
 
 [env]
 PORT = "5000"
+GEMINI_API_KEY = "AIzaSyAGifl-0MEq4RwD21TXIN1K4yeYm3H5C_4"
 
 [workflows]
 runButton = "Project"

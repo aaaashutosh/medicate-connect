@@ -49,14 +49,14 @@ export default function Support() {
     {
       id: 1,
       sender: "support",
-      content: "Hello! I'm Sarah from Medicate support. How can I help you today?",
+      content: "Hello! I'm Khusboo from Medicate support. How can I help you today?",
       time: "2:34 PM",
       isRead: true
     },
     {
       id: 2,
       sender: "user",
-      content: "Hi Sarah! I'm having trouble accessing my prescription history. Can you help?",
+      content: "Hi Khusboo! I'm having trouble accessing my prescription history. Can you help?",
       time: "2:35 PM",
       isRead: true
     },
@@ -188,7 +188,7 @@ export default function Support() {
                     <PhoneCall className="h-5 w-5 text-red-600 dark:text-red-400" />
                     <div>
                       <p className="font-medium text-red-800 dark:text-red-300">Emergency Hotline</p>
-                      <p className="text-red-700 dark:text-red-400">+1 (555) 911-HELP</p>
+                      <p className="text-red-700 dark:text-red-400">+977 976543210</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -211,7 +211,7 @@ export default function Support() {
                     <Phone className="h-5 w-5 text-medicate-primary" />
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">Support Phone</p>
-                      <p className="text-gray-600 dark:text-gray-400">+1 (555) 123-CARE</p>
+                      <p className="text-gray-600 dark:text-gray-400">+977 9765478910</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">

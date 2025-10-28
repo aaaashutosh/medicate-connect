@@ -9,18 +9,43 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Star, Phone, MessageCircle, Video, Search, MapPin, Award, Clock } from "lucide-react";
+import AppointmentModal from "@/components/appointment-modal";
+import ChatModal from "@/components/chat-modal";
 import type { User } from "@shared/schema";
 
 const specialties = [
   "all",
   "Cardiologist",
-  "Dermatologist", 
+  "Dermatologist",
   "Pediatrician",
   "Orthopedic",
   "Neurologist",
   "Psychiatrist",
+  "General Practitioner",
+  "Surgeon",
+  "Ophthalmologist",
   "Gynecologist",
+  "Dentist",
+  "Radiologist",
+  "Endocrinologist",
+  "Urologist",
   "Oncologist",
+  "Pulmonologist",
+  "Nephrologist",
+  "Hematologist",
+  "Rheumatologist",
+  "Allergist",
+  "Infectious Disease Specialist",
+  "Emergency Medicine",
+  "Family Medicine",
+  "Internal Medicine",
+  "Pathologist",
+  "Anesthesiologist",
+  "Sports Medicine",
+  "Plastic Surgeon",
+  "Obstetrician",
+  "Cardiothoracic Surgeon",
+  "Vascular Surgeon",
 ];
 
 export default function DoctorsPage() {
@@ -45,22 +70,20 @@ export default function DoctorsPage() {
   );
 
   const handleBookAppointment = (doctor: User) => {
-    toast({
-      title: "Appointment Booking",
-      description: `Booking appointment with ${doctor.name}. This feature will be available soon.`,
-    });
+    // Implementation handled by AppointmentModal component
   };
 
   const handleMessage = (doctor: User) => {
-    toast({
-      title: "Message Doctor",
-      description: `Opening chat with ${doctor.name}. This feature will be available soon.`,
-    });
+    // Implementation handled by ChatModal component
   };
 
   const handleCall = (doctor: User) => {
     if (doctor.phone) {
       window.open(`tel:${doctor.phone}`, '_blank');
+      toast({
+        title: "Calling...",
+        description: `Dialing ${doctor.name} at ${doctor.phone}`,
+      });
     } else {
       toast({
         title: "Call Unavailable",
@@ -168,7 +191,7 @@ export default function DoctorsPage() {
                   <div className="flex items-center space-x-4">
                     <Avatar className="h-16 w-16">
                       <AvatarImage 
-                        src={doctor.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&size=200&background=8B5CF6&color=fff`} 
+                        src={doctor.profilePicture || `https://media.istockphoto.com/id/2077095666/vector/default-placeholder-doctor-portrait-photo-avatar-on-gray-background-greyscale-healthcare.jpg?s=612x612&w=0&k=20&c=en2o7NAtzp_udRQhckeWozkwHiXGz5KCRhTzY3Vbhdo=`} 
                         alt={doctor.name} 
                       />
                       <AvatarFallback className="bg-medicate-light text-white text-lg">
@@ -233,23 +256,31 @@ export default function DoctorsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex space-x-2 pt-4">
-                    <Button
-                      onClick={() => handleBookAppointment(doctor)}
-                      className="flex-1 bg-medicate-primary hover:bg-medicate-dark text-white"
-                      size="sm"
-                    >
-                      Book Appointment
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleMessage(doctor)}
-                      variant="outline"
-                      size="sm"
-                      className="border-medicate-primary text-medicate-primary hover:bg-medicate-primary hover:text-white"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                    </Button>
-                    
+                    <AppointmentModal
+                      doctor={doctor}
+                      trigger={
+                        <Button
+                          className="flex-1 bg-medicate-primary hover:bg-medicate-dark text-white"
+                          size="sm"
+                        >
+                          Book Appointment
+                        </Button>
+                      }
+                    />
+
+                    <ChatModal
+                      doctor={doctor}
+                      trigger={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-medicate-primary text-medicate-primary hover:bg-medicate-primary hover:text-white"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+
                     {doctor.phone && (
                       <Button
                         onClick={() => handleCall(doctor)}
@@ -257,7 +288,7 @@ export default function DoctorsPage() {
                         size="sm"
                         className="border-medicate-primary text-medicate-primary hover:bg-medicate-primary hover:text-white"
                       >
-                        <Video className="h-4 w-4" />
+                        <Phone className="h-4 w-4" />
                       </Button>
                     )}
                   </div>

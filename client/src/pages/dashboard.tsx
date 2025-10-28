@@ -187,7 +187,7 @@ export default function Dashboard() {
                         <Stethoscope className="h-6 w-6 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Sarah Johnson</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Khusboo Priya Singh</h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400">{appointment.reason}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-500">
                           {new Date(appointment.date).toLocaleDateString()} at {new Date(appointment.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -495,7 +495,7 @@ export default function Dashboard() {
       <ChatModal 
         isOpen={showChat} 
         onClose={() => setShowChat(false)}
-        doctorName="Dr. Sarah Johnson"
+        doctorName="Dr. Dr. Khusboo Priya Singh"
         status="online"
       />
       <PrescriptionModal 

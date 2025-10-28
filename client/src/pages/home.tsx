@@ -67,8 +67,8 @@ export default function Home() {
                       <Heart className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 dark:text-gray-200">Dr. Sarah Johnson</h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Cardiologist</p>
+                      <h3 className="font-semibold text-gray-800 dark:text-gray-200">Dr.Khusboo Priya Singh</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Gastroenterologist</p>
                       <div className="flex items-center space-x-1">
                         <div className="w-2 h-2 bg-green-400 rounded-full online-dot"></div>
                         <span className="text-xs text-green-600 dark:text-green-400">Available Now</span>
@@ -153,7 +153,7 @@ export default function Home() {
                     <Heart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Maria Rodriguez</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Tanka Dahal</h4>
                     <p className="text-gray-500 dark:text-gray-400 text-sm">Patient</p>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function Home() {
                     <Stethoscope className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Michael Chen</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Upendra Devkota</h4>
                     <p className="text-gray-500 dark:text-gray-400 text-sm">Cardiologist</p>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export default function Home() {
                     <Heart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">James Wilson</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Jamuna Shrestha</h4>
                     <p className="text-gray-500 dark:text-gray-400 text-sm">Patient</p>
                   </div>
                 </div>

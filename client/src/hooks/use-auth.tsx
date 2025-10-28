@@ -5,8 +5,11 @@ import { apiRequest } from "@/lib/api";
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, role: "patient" | "doctor") => Promise<void>;
   logout: () => void;
+  setUser: (user: User) => void;
   isLoading: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,13 +39,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signup = async (name: string, email: string, password: string, role: "patient" | "doctor") => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/register", { name, email, password, role });
+      const data = await response.json();
+      
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+    } catch (error: any) {
+      throw new Error(error.message || "Signup failed");
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, setUser: updateUser, isLoading, isAdmin: user?.role === 'admin' }}>
       {children}
     </AuthContext.Provider>
   );
