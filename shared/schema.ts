@@ -60,6 +60,18 @@ export const messages = pgTable("messages", {
   read: boolean("read").notNull().default(false),
   timestamp: text("timestamp").default(sql`CURRENT_TIMESTAMP::text`),
   createdAt: timestamp("created_at").defaultNow(),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  fileMime: text("file_mime")
+});
+
+export const chats = pgTable("chats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  participants: json("participants"), // array of user ids
+  lastMessageId: varchar("last_message_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const notifications = pgTable("notifications", {
@@ -69,6 +81,16 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   type: text("type", { enum: ["appointment", "prescription", "general"] }).notNull(),
   isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const contactMessages = pgTable("contact_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  status: text("status", { enum: ["unread", "read", "replied"] }).notNull().default("unread"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -95,7 +117,14 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   createdAt: true,
 });
 
+export const insertChatSchema = createInsertSchema(chats).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContactMessageSchema = createInsertSchema(contactMessages).omit({
   id: true,
   createdAt: true,
 });
@@ -109,5 +138,9 @@ export type Prescription = typeof prescriptions.$inferSelect;
 export type InsertPrescription = z.infer<typeof insertPrescriptionSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Chat = typeof chats.$inferSelect;
+export type InsertChat = z.infer<typeof insertChatSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type ContactMessage = typeof contactMessages.$inferSelect;
+export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;

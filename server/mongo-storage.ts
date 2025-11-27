@@ -8,9 +8,12 @@ import {
   type Message,
   type InsertMessage,
   type Notification,
-  type InsertNotification
+  type InsertNotification,
+  type ContactMessage,
+  type InsertContactMessage,
 } from "@shared/schema";
-import { User as UserModel, Appointment as AppointmentModel, Prescription as PrescriptionModel, Message as MessageModel, Notification as NotificationModel } from "./models";
+import { User as UserModel, Appointment as AppointmentModel, Prescription as PrescriptionModel, Message as MessageModel, Notification as NotificationModel, ContactMessage as ContactMessageModel, Chat as ChatModel, IChat, IMessage } from "./models";
+import { Schema } from "mongoose";
 
 export interface IStorage {
   // Users
@@ -20,6 +23,7 @@ export interface IStorage {
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   getDoctors(): Promise<User[]>;
   getDoctorsBySpecialty(specialty: string): Promise<User[]>;
+  getPatientsByDoctor(doctorId: string): Promise<User[]>;
 
   // Appointments
   getAppointment(id: string): Promise<Appointment | undefined>;
@@ -30,561 +34,269 @@ export interface IStorage {
   updateAppointmentPaymentStatus(id: string, paymentStatus: string, paymentRef?: string): Promise<Appointment | undefined>;
 
   // Prescriptions
+  getPrescription(id: string): Promise<Prescription | undefined>;
   getPrescriptionsByPatient(patientId: string): Promise<Prescription[]>;
   getPrescriptionsByDoctor(doctorId: string): Promise<Prescription[]>;
   createPrescription(prescription: InsertPrescription): Promise<Prescription>;
-  updatePrescriptionStatus(id: string, status: string): Promise<Prescription | undefined>;
 
-  // Messages
-  getMessagesBetweenUsers(userId1: string, userId2: string): Promise<Message[]>;
-  getConversationsForUser(userId: string): Promise<Array<{user: User, lastMessage: Message, unreadCount: number}>>;
-  createMessage(message: InsertMessage): Promise<Message>;
-  markMessageAsRead(id: string): Promise<Message | undefined>;
-
+  // Messages/Chat
+  getChatByParticipants(userAId: string, userBId: string): Promise<IChat | null>;
+  saveMessage(messageData: { senderId: string, receiverId: string, chatId: string, content: string, messageType: 'text' | 'image' | 'voice' | 'file' | 'report', fileUrl?: string, fileMimeType?: string }): Promise<IMessage>;
+  getMessagesByChatId(chatId: string, page: number, limit: number): Promise<IMessage[]>;
+  markMessagesAsRead(chatId: string, receiverId: string): Promise<void>;
+  getChatsForUser(userId: string): Promise<Array<{ id: string, participants: User[], lastMessage?: Message, unreadCount: number }>>;
+  
   // Notifications
-  getNotificationsByUser(userId: string): Promise<Notification[]>;
+  getNotification(id: string): Promise<Notification | undefined>;
+  getNotificationsByUserId(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
-
-  // Dashboard stats
-  getDashboardStats(userId: string, role: string): Promise<any>;
+  
+  // Contact Messages
+  createContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
 }
+
+// Helper to map Mongoose User document to User interface (excluding sensitive data)
+const mapToUser = (doc: any): User => ({
+  id: doc._id.toString(),
+  email: doc.email,
+  role: doc.role as 'doctor' | 'patient' | 'admin',
+  name: doc.name,
+  phone: doc.phone,
+  profilePicture: doc.profilePicture,
+  specialty: doc.specialty,
+  license: doc.license,
+  experience: doc.experience,
+  rating: doc.rating,
+  isAvailable: doc.isAvailable,
+});
+
 
 export class MongoStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    const user = await UserModel.findById(id);
-    if (!user) return undefined;
-
-    return {
-      id: user._id.toString(),
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      name: user.name,
-      phone: user.phone ?? null,
-      profilePicture: user.profilePicture ?? null,
-      specialty: user.specialty ?? null,
-      license: user.license ?? null,
-      experience: user.experience ?? null,
-      rating: user.rating ?? null,
-      isAvailable: user.isAvailable ?? null,
-      createdAt: user.createdAt,
-    };
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const user = await UserModel.findOne({ email });
-    if (!user) return undefined;
-
-    return {
-      id: user._id.toString(),
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      name: user.name,
-      phone: user.phone,
-      profilePicture: user.profilePicture,
-      specialty: user.specialty,
-      license: user.license,
-      experience: user.experience,
-      rating: user.rating,
-      isAvailable: user.isAvailable,
-      createdAt: user.createdAt,
-    };
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const user = new UserModel(insertUser);
-    const savedUser = await user.save();
-
-    return {
-      id: savedUser._id.toString(),
-      email: savedUser.email,
-      password: savedUser.password,
-      role: savedUser.role,
-      name: savedUser.name,
-      phone: savedUser.phone,
-      profilePicture: savedUser.profilePicture,
-      specialty: savedUser.specialty,
-      license: savedUser.license,
-      experience: savedUser.experience,
-      rating: savedUser.rating,
-      isAvailable: savedUser.isAvailable,
-      createdAt: savedUser.createdAt,
-    };
-  }
-
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = await UserModel.findByIdAndUpdate(id, updates, { new: true });
-    if (!user) return undefined;
-
-    return {
-      id: user._id.toString(),
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      name: user.name,
-      phone: user.phone,
-      profilePicture: user.profilePicture,
-      specialty: user.specialty,
-      license: user.license,
-      experience: user.experience,
-      rating: user.rating,
-      isAvailable: user.isAvailable,
-      createdAt: user.createdAt,
-    };
-  }
-
-  async getDoctors(): Promise<User[]> {
-    const doctors = await UserModel.find({ role: 'doctor' });
-    return doctors.map(doctor => ({
-      id: doctor._id.toString(),
-      email: doctor.email,
-      password: doctor.password,
-      role: doctor.role,
-      name: doctor.name,
-      phone: doctor.phone,
-      profilePicture: doctor.profilePicture,
-      specialty: doctor.specialty,
-      license: doctor.license,
-      experience: doctor.experience,
-      rating: doctor.rating,
-      isAvailable: doctor.isAvailable,
-      createdAt: doctor.createdAt,
-    }));
-  }
-
-  async getAllUsers(): Promise<User[]> {
-    const users = await UserModel.find({});
-    return users.map(user => ({
-      id: user._id.toString(),
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      name: user.name,
-      phone: user.phone,
-      profilePicture: user.profilePicture,
-      specialty: user.specialty,
-      license: user.license,
-      experience: user.experience,
-      rating: user.rating,
-      isAvailable: user.isAvailable,
-      createdAt: user.createdAt,
-    }));
-  }
-
-  async deleteUser(id: string): Promise<boolean> {
-    const result = await UserModel.findByIdAndDelete(id);
-    return !!result;
-  }
-
-  async getDoctorsBySpecialty(specialty: string): Promise<User[]> {
-    const doctors = await UserModel.find({ role: 'doctor', specialty });
-    return doctors.map(doctor => ({
-      id: doctor._id.toString(),
-      email: doctor.email,
-      password: doctor.password,
-      role: doctor.role,
-      name: doctor.name,
-      phone: doctor.phone,
-      profilePicture: doctor.profilePicture,
-      specialty: doctor.specialty,
-      license: doctor.license,
-      experience: doctor.experience,
-      rating: doctor.rating,
-      isAvailable: doctor.isAvailable,
-      createdAt: doctor.createdAt,
-    }));
-  }
-
-  async getAppointment(id: string): Promise<Appointment | undefined> {
-    const appointment = await AppointmentModel.findById(id);
-    if (!appointment) return undefined;
-
-    return {
-      id: appointment._id.toString(),
-      patientId: appointment.patientId.toString(),
-      doctorId: appointment.doctorId.toString(),
-      date: appointment.date,
-      duration: appointment.duration,
-      reason: appointment.reason,
-      status: appointment.status,
-      notes: appointment.notes,
-      paymentAmount: appointment.paymentAmount || 100000,
-      paymentStatus: appointment.paymentStatus || "pending",
-      paymentMethod: appointment.paymentMethod || "esewa",
-      paymentRef: appointment.paymentRef || null,
-      createdAt: appointment.createdAt,
-    };
-  }
-
-  async getAppointmentsByPatient(patientId: string): Promise<Appointment[]> {
-    const appointments = await AppointmentModel.find({ patientId }).populate('doctorId');
-    return appointments.map(appointment => ({
-      id: appointment._id.toString(),
-      patientId: appointment.patientId.toString(),
-      doctorId: appointment.doctorId.toString(),
-      date: appointment.date,
-      duration: appointment.duration,
-      reason: appointment.reason,
-      status: appointment.status,
-      notes: appointment.notes,
-      paymentAmount: appointment.paymentAmount,
-      paymentStatus: appointment.paymentStatus,
-      paymentMethod: appointment.paymentMethod,
-      paymentRef: appointment.paymentRef,
-      createdAt: appointment.createdAt,
-    }));
-  }
-
-  async getAppointmentsByDoctor(doctorId: string): Promise<Appointment[]> {
-    const appointments = await AppointmentModel.find({ doctorId }).populate('patientId');
-    return appointments.map(appointment => ({
-      id: appointment._id.toString(),
-      patientId: appointment.patientId.toString(),
-      doctorId: appointment.doctorId.toString(),
-      date: appointment.date,
-      duration: appointment.duration,
-      reason: appointment.reason,
-      status: appointment.status,
-      notes: appointment.notes,
-      paymentAmount: appointment.paymentAmount,
-      paymentStatus: appointment.paymentStatus,
-      paymentMethod: appointment.paymentMethod,
-      paymentRef: appointment.paymentRef,
-      createdAt: appointment.createdAt,
-    }));
-  }
-
-  async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
-    const appointment = new AppointmentModel(insertAppointment);
-    const savedAppointment = await appointment.save();
-
-    return {
-      id: savedAppointment._id.toString(),
-      patientId: savedAppointment.patientId.toString(),
-      doctorId: savedAppointment.doctorId.toString(),
-      date: savedAppointment.date,
-      duration: savedAppointment.duration,
-      reason: savedAppointment.reason,
-      status: savedAppointment.status,
-      notes: savedAppointment.notes,
-      paymentAmount: savedAppointment.paymentAmount,
-      paymentStatus: savedAppointment.paymentStatus,
-      paymentMethod: savedAppointment.paymentMethod,
-      paymentRef: savedAppointment.paymentRef,
-      createdAt: savedAppointment.createdAt,
-    };
-  }
-
-  async updateAppointmentStatus(id: string, status: string): Promise<Appointment | undefined> {
-    const appointment = await AppointmentModel.findByIdAndUpdate(id, { status }, { new: true });
-    if (!appointment) return undefined;
-
-    return {
-      id: appointment._id.toString(),
-      patientId: appointment.patientId.toString(),
-      doctorId: appointment.doctorId.toString(),
-      date: appointment.date,
-      duration: appointment.duration,
-      reason: appointment.reason,
-      status: appointment.status,
-      notes: appointment.notes,
-      paymentAmount: appointment.paymentAmount,
-      paymentStatus: appointment.paymentStatus,
-      paymentMethod: appointment.paymentMethod,
-      paymentRef: appointment.paymentRef,
-      createdAt: appointment.createdAt,
-    };
-  }
-
-  async getPrescriptionsByPatient(patientId: string): Promise<Prescription[]> {
-    const prescriptions = await PrescriptionModel.find({ patientId }).populate('doctorId');
-    return prescriptions.map(prescription => ({
-      id: prescription._id.toString(),
-      patientId: prescription.patientId.toString(),
-      doctorId: prescription.doctorId.toString(),
-      appointmentId: prescription.appointmentId?.toString(),
-      medication: prescription.medication,
-      dosage: prescription.dosage,
-      frequency: prescription.frequency,
-      duration: prescription.duration,
-      instructions: prescription.instructions,
-      status: prescription.status,
-      startDate: prescription.startDate,
-      endDate: prescription.endDate,
-      createdAt: prescription.createdAt,
-    }));
-  }
-
-  async getPrescriptionsByDoctor(doctorId: string): Promise<Prescription[]> {
-    const prescriptions = await PrescriptionModel.find({ doctorId }).populate('patientId');
-    return prescriptions.map(prescription => ({
-      id: prescription._id.toString(),
-      patientId: prescription.patientId.toString(),
-      doctorId: prescription.doctorId.toString(),
-      appointmentId: prescription.appointmentId?.toString(),
-      medication: prescription.medication,
-      dosage: prescription.dosage,
-      frequency: prescription.frequency,
-      duration: prescription.duration,
-      instructions: prescription.instructions,
-      status: prescription.status,
-      startDate: prescription.startDate,
-      endDate: prescription.endDate,
-      createdAt: prescription.createdAt,
-    }));
-  }
-
-  async createPrescription(insertPrescription: InsertPrescription): Promise<Prescription> {
-    const prescription = new PrescriptionModel(insertPrescription);
-    const savedPrescription = await prescription.save();
-
-    return {
-      id: savedPrescription._id.toString(),
-      patientId: savedPrescription.patientId.toString(),
-      doctorId: savedPrescription.doctorId.toString(),
-      appointmentId: savedPrescription.appointmentId?.toString(),
-      medication: savedPrescription.medication,
-      dosage: savedPrescription.dosage,
-      frequency: savedPrescription.frequency,
-      duration: savedPrescription.duration,
-      instructions: savedPrescription.instructions,
-      status: savedPrescription.status,
-      startDate: savedPrescription.startDate,
-      endDate: savedPrescription.endDate,
-      createdAt: savedPrescription.createdAt,
-    };
-  }
-
-  async updatePrescriptionStatus(id: string, status: string): Promise<Prescription | undefined> {
-    const prescription = await PrescriptionModel.findByIdAndUpdate(id, { status }, { new: true });
-    if (!prescription) return undefined;
-
-    return {
-      id: prescription._id.toString(),
-      patientId: prescription.patientId.toString(),
-      doctorId: prescription.doctorId.toString(),
-      appointmentId: prescription.appointmentId?.toString(),
-      medication: prescription.medication,
-      dosage: prescription.dosage,
-      frequency: prescription.frequency,
-      duration: prescription.duration,
-      instructions: prescription.instructions,
-      status: prescription.status,
-      startDate: prescription.startDate,
-      endDate: prescription.endDate,
-      createdAt: prescription.createdAt,
-    };
-  }
-
-  async getMessagesBetweenUsers(userId1: string, userId2: string): Promise<Message[]> {
-    const messages = await MessageModel.find({
-      $or: [
-        { senderId: userId1, receiverId: userId2 },
-        { senderId: userId2, receiverId: userId1 }
-      ]
-    }).sort({ createdAt: 1 });
-
-    return messages.map(message => ({
-      id: message._id.toString(),
-      senderId: message.senderId.toString(),
-      receiverId: message.receiverId.toString(),
-      content: message.content,
-      messageType: message.messageType,
-      read: message.read,
-      timestamp: message.timestamp,
-      createdAt: message.createdAt,
-    }));
-  }
-
-  async getConversationsForUser(userId: string): Promise<Array<{user: User, lastMessage: Message, unreadCount: number}>> {
-    // Get all messages where user is sender or receiver
-    const messages = await MessageModel.find({
-      $or: [{ senderId: userId }, { receiverId: userId }]
-    }).populate('senderId').populate('receiverId').sort({ createdAt: -1 });
-
-    const conversationMap = new Map<string, {user: User, lastMessage: Message, unreadCount: number}>();
-
-    for (const message of messages) {
-      const otherUserId = message.senderId.toString() === userId ? message.receiverId.toString() : message.senderId.toString();
-      if (conversationMap.has(otherUserId)) continue;
-
-      const otherUser = message.senderId.toString() === userId ? message.receiverId : message.senderId;
-      const unreadCount = await MessageModel.countDocuments({
-        senderId: otherUserId,
-        receiverId: userId,
-        read: false
-      });
-
-      conversationMap.set(otherUserId, {
-        user: {
-          id: otherUser._id.toString(),
-          email: otherUser.email,
-          password: otherUser.password,
-          role: otherUser.role,
-          name: otherUser.name,
-          phone: otherUser.phone,
-          profilePicture: otherUser.profilePicture,
-          specialty: otherUser.specialty,
-          license: otherUser.license,
-          experience: otherUser.experience,
-          rating: otherUser.rating,
-          isAvailable: otherUser.isAvailable,
-          createdAt: otherUser.createdAt,
-        },
-        lastMessage: {
-          id: message._id.toString(),
-          senderId: message.senderId.toString(),
-          receiverId: message.receiverId.toString(),
-          content: message.content,
-          messageType: message.messageType,
-          read: message.read,
-          timestamp: message.timestamp,
-          createdAt: message.createdAt,
-        },
-        unreadCount
-      });
+    // --- User Methods ---
+    async getUser(id: string): Promise<User | undefined> {
+        const user = await UserModel.findById(id).lean();
+        return user ? mapToUser(user) : undefined;
     }
 
-    return Array.from(conversationMap.values());
-  }
-
-  async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const message = new MessageModel(insertMessage);
-    const savedMessage = await message.save();
-
-    return {
-      id: savedMessage._id.toString(),
-      senderId: savedMessage.senderId.toString(),
-      receiverId: savedMessage.receiverId.toString(),
-      content: savedMessage.content,
-      messageType: savedMessage.messageType,
-      read: savedMessage.read,
-      timestamp: savedMessage.timestamp,
-      createdAt: savedMessage.createdAt,
-    };
-  }
-
-  async markMessageAsRead(id: string): Promise<Message | undefined> {
-    const message = await MessageModel.findByIdAndUpdate(id, { read: true }, { new: true });
-    if (!message) return undefined;
-
-    return {
-      id: message._id.toString(),
-      senderId: message.senderId.toString(),
-      receiverId: message.receiverId.toString(),
-      content: message.content,
-      messageType: message.messageType,
-      read: message.read,
-      timestamp: message.timestamp,
-      createdAt: message.createdAt,
-    };
-  }
-
-  async getNotificationsByUser(userId: string): Promise<Notification[]> {
-    const notifications = await NotificationModel.find({ userId }).sort({ createdAt: -1 });
-    return notifications.map(notification => ({
-      id: notification._id.toString(),
-      userId: notification.userId.toString(),
-      title: notification.title,
-      message: notification.message,
-      type: notification.type,
-      isRead: notification.isRead,
-      createdAt: notification.createdAt,
-    }));
-  }
-
-  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const notification = new NotificationModel(insertNotification);
-    const savedNotification = await notification.save();
-
-    return {
-      id: savedNotification._id.toString(),
-      userId: savedNotification.userId.toString(),
-      title: savedNotification.title,
-      message: savedNotification.message,
-      type: savedNotification.type,
-      isRead: savedNotification.isRead,
-      createdAt: savedNotification.createdAt,
-    };
-  }
-
-  async markNotificationAsRead(id: string): Promise<Notification | undefined> {
-    const notification = await NotificationModel.findByIdAndUpdate(id, { isRead: true }, { new: true });
-    if (!notification) return undefined;
-
-    return {
-      id: notification._id.toString(),
-      userId: notification.userId.toString(),
-      title: notification.title,
-      message: notification.message,
-      type: notification.type,
-      isRead: notification.isRead,
-      createdAt: notification.createdAt,
-    };
-  }
-
-  async updateAppointmentPaymentStatus(id: string, paymentStatus: string, paymentRef?: string): Promise<Appointment | undefined> {
-    const updateData: any = { paymentStatus };
-    if (paymentRef) {
-      updateData.paymentRef = paymentRef;
+    async getUserByEmail(email: string): Promise<User | undefined> {
+        const user = await UserModel.findOne({ email }).lean();
+        return user ? mapToUser(user) : undefined;
     }
-    const appointment = await AppointmentModel.findByIdAndUpdate(id, updateData, { new: true });
-    if (!appointment) return undefined;
 
-    return {
-      id: appointment._id.toString(),
-      patientId: appointment.patientId.toString(),
-      doctorId: appointment.doctorId.toString(),
-      date: appointment.date,
-      duration: appointment.duration,
-      reason: appointment.reason,
-      status: appointment.status,
-      notes: appointment.notes,
-      paymentAmount: appointment.paymentAmount,
-      paymentStatus: appointment.paymentStatus,
-      paymentMethod: appointment.paymentMethod,
-      paymentRef: appointment.paymentRef,
-      createdAt: appointment.createdAt,
-    };
-  }
-
-  async getDashboardStats(userId: string, role: string): Promise<any> {
-    if (role === "patient") {
-      const appointments = await this.getAppointmentsByPatient(userId);
-      const prescriptions = await this.getPrescriptionsByPatient(userId);
-      const notifications = await this.getNotificationsByUser(userId);
-
-      return {
-        upcomingAppointments: appointments.filter(a => a.status === "scheduled").length,
-        activePrescriptions: prescriptions.filter(p => p.status === "active").length,
-        healthReports: 7, // Mock data
-        alerts: notifications.filter(n => !n.isRead).length,
-      };
-    } else {
-      const appointments = await this.getAppointmentsByDoctor(userId);
-      const prescriptions = await this.getPrescriptionsByDoctor(userId);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      return {
-        todayAppointments: appointments.filter(a =>
-          a.date >= today && a.date < tomorrow
-        ).length,
-        totalPatients: new Set(appointments.map(a => a.patientId)).size,
-        prescriptionsThisWeek: prescriptions.filter(p => {
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          return p.createdAt >= weekAgo;
-        }).length,
-        rating: 4.9, // Mock data
-      };
+    async createUser(user: InsertUser): Promise<User> {
+        const newUser = new UserModel(user);
+        const savedUser = await newUser.save();
+        return mapToUser(savedUser);
     }
-  }
+
+    async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+        const updatedUser = await UserModel.findByIdAndUpdate(id, updates, { new: true }).lean();
+        return updatedUser ? mapToUser(updatedUser) : undefined;
+    }
+
+    async getDoctors(): Promise<User[]> {
+        // Implementation: Fetch all users with role 'doctor'
+        const doctors = await UserModel.find({ role: 'doctor' }).lean();
+        return doctors.map(mapToUser);
+    }
+
+    async getDoctorsBySpecialty(specialty: string): Promise<User[]> {
+        // Implementation: Fetch users with role 'doctor' and matching specialty
+        const doctors = await UserModel.find({ role: 'doctor', specialty: specialty }).lean();
+        return doctors.map(mapToUser);
+    }
+
+    async getPatientsByDoctor(doctorId: string): Promise<User[]> {
+        // Placeholder/Stub implementation. You would typically fetch patients based on appointments
+        // or a dedicated assignment field if one exists.
+        // For a simple implementation, we can fetch all users with role 'patient'.
+        const patients = await UserModel.find({ role: 'patient' }).lean();
+        return patients.map(mapToUser);
+    }
+
+    // --- Appointment Methods ---
+    async getAppointment(id: string): Promise<Appointment | undefined> {
+        const appointment = await AppointmentModel.findById(id).lean();
+        return appointment ? appointment as Appointment : undefined;
+    }
+
+    async getAppointmentsByPatient(patientId: string): Promise<Appointment[]> {
+        const appointments = await AppointmentModel.find({ patientId }).lean();
+        return appointments as Appointment[];
+    }
+
+    async getAppointmentsByDoctor(doctorId: string): Promise<Appointment[]> {
+        const appointments = await AppointmentModel.find({ doctorId }).lean();
+        return appointments as Appointment[];
+    }
+
+    async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+        const newAppointment = new AppointmentModel(appointment);
+        const savedAppointment = await newAppointment.save();
+        return savedAppointment as Appointment;
+    }
+
+    async updateAppointmentStatus(id: string, status: string): Promise<Appointment | undefined> {
+        const updatedAppointment = await AppointmentModel.findByIdAndUpdate(id, { status }, { new: true }).lean();
+        return updatedAppointment ? updatedAppointment as Appointment : undefined;
+    }
+
+    async updateAppointmentPaymentStatus(id: string, paymentStatus: string, paymentRef?: string): Promise<Appointment | undefined> {
+        const updatedAppointment = await AppointmentModel.findByIdAndUpdate(id, { paymentStatus, paymentRef }, { new: true }).lean();
+        return updatedAppointment ? updatedAppointment as Appointment : undefined;
+    }
+
+    // --- Prescription Methods ---
+    async getPrescription(id: string): Promise<Prescription | undefined> {
+        const prescription = await PrescriptionModel.findById(id).lean();
+        return prescription ? prescription as Prescription : undefined;
+    }
+
+    async getPrescriptionsByPatient(patientId: string): Promise<Prescription[]> {
+        const prescriptions = await PrescriptionModel.find({ patientId }).lean();
+        return prescriptions as Prescription[];
+    }
+
+    async getPrescriptionsByDoctor(doctorId: string): Promise<Prescription[]> {
+        const prescriptions = await PrescriptionModel.find({ doctorId }).lean();
+        return prescriptions as Prescription[];
+    }
+
+    async createPrescription(prescription: InsertPrescription): Promise<Prescription> {
+        const newPrescription = new PrescriptionModel(prescription);
+        const savedPrescription = await newPrescription.save();
+        return savedPrescription as Prescription;
+    }
+
+    // --- Chat Methods ---
+    async getChatByParticipants(userAId: string, userBId: string): Promise<IChat | null> {
+        const sortedParticipants = [userAId, userBId].sort();
+        const chat = await ChatModel.findOne({ participants: sortedParticipants });
+        return chat;
+    }
+
+    async saveMessage(messageData: { senderId: string, receiverId: string, chatId: string, content: string, messageType: 'text' | 'image' | 'voice' | 'file' | 'report', fileUrl?: string, fileMimeType?: string }): Promise<IMessage> {
+        const message = new MessageModel({
+            chatId: messageData.chatId,
+            senderId: messageData.senderId,
+            receiverId: messageData.receiverId,
+            content: messageData.content,
+            messageType: messageData.messageType,
+            fileUrl: messageData.fileUrl,
+            fileMimeType: messageData.fileMimeType,
+            read: false,
+            delivered: false,
+        });
+
+        const savedMessage = await message.save();
+
+        // Update chat's lastMessage and updatedAt
+        await ChatModel.findByIdAndUpdate(messageData.chatId, {
+            lastMessage: savedMessage._id,
+            updatedAt: new Date()
+        });
+
+        // Add receiverId to the saved message object before returning
+        return {
+            ...savedMessage.toObject(),
+            receiverId: messageData.receiverId,
+        } as IMessage;
+    }
+
+    async getMessagesByChatId(chatId: string, page: number = 1, limit: number = 50): Promise<IMessage[]> {
+        const skip = (page - 1) * limit;
+        const messages = await MessageModel.find({ chatId })
+            .sort({ createdAt: 1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        return messages as IMessage[];
+    }
+
+    async markMessagesAsRead(chatId: string, receiverId: string): Promise<void> {
+        // Mark all messages in the chat *received by* the receiverId as read
+        await MessageModel.updateMany(
+            { chatId: chatId, receiverId: receiverId, read: false },
+            { $set: { read: true } }
+        );
+    }
+    
+    // Helper to calculate unread count (must be used in getChatsForUser)
+    async getUnreadCount(chatId: string, userId: string): Promise<number> {
+      return MessageModel.countDocuments({ chatId: chatId, receiverId: userId, read: false });
+    }
+
+    async getChatsForUser(userId: string): Promise<Array<{ id: string, participants: User[], lastMessage?: Message, unreadCount: number }>> {
+        const chats = await ChatModel.find({ participants: userId })
+            .populate('participants')
+            .populate('lastMessage')
+            .sort({ updatedAt: -1 })
+            .lean();
+
+        const result = await Promise.all(chats.map(async (chat: any) => {
+            const unreadCount = await this.getUnreadCount(chat._id.toString(), userId);
+            
+            const participants = chat.participants.map(mapToUser);
+
+            let lastMessage: Message | undefined;
+            if (chat.lastMessage) {
+              // Map lastMessage to the Message type
+              lastMessage = {
+                id: chat.lastMessage._id.toString(),
+                senderId: chat.lastMessage.senderId.toString(),
+                receiverId: chat.lastMessage.receiverId.toString(),
+                chatId: chat.lastMessage.chatId.toString(),
+                content: chat.lastMessage.content,
+                messageType: chat.lastMessage.messageType,
+                fileUrl: chat.lastMessage.fileUrl,
+                fileMimeType: chat.lastMessage.fileMimeType,
+                read: chat.lastMessage.read,
+                delivered: chat.lastMessage.delivered,
+                createdAt: chat.lastMessage.createdAt.toISOString(),
+              };
+            }
+
+            return {
+                id: chat._id.toString(),
+                participants: participants,
+                lastMessage: lastMessage,
+                unreadCount: unreadCount,
+            };
+        }));
+        
+        return result;
+    }
+
+    // --- Notification Methods ---
+    async getNotification(id: string): Promise<Notification | undefined> {
+        const notification = await NotificationModel.findById(id).lean();
+        return notification ? notification as Notification : undefined;
+    }
+
+    async getNotificationsByUserId(userId: string): Promise<Notification[]> {
+        const notifications = await NotificationModel.find({ userId }).sort({ createdAt: -1 }).lean();
+        return notifications as Notification[];
+    }
+
+    async createNotification(notification: InsertNotification): Promise<Notification> {
+        const newNotification = new NotificationModel(notification);
+        const savedNotification = await newNotification.save();
+        return savedNotification as Notification;
+    }
+
+    async markNotificationAsRead(id: string): Promise<Notification | undefined> {
+        const updatedNotification = await NotificationModel.findByIdAndUpdate(id, { read: true }, { new: true }).lean();
+        return updatedNotification ? updatedNotification as Notification : undefined;
+    }
+
+    // --- Contact Message Methods ---
+    async createContactMessage(message: InsertContactMessage): Promise<ContactMessage> {
+        const newContactMessage = new ContactMessageModel(message);
+        const savedContactMessage = await newContactMessage.save();
+        return savedContactMessage as ContactMessage;
+    }
 }
 
-export const mongoStorage = new MongoStorage();
+export const storage = new MongoStorage();

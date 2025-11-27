@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useLocation } from 'wouter';
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,14 +54,15 @@ export default function DoctorsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
-  const { data: doctors = [], isLoading } = useQuery({
+  const { data: doctors = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/doctors", selectedSpecialty],
     queryFn: async () => {
       const params = selectedSpecialty !== "all" ? `?specialty=${selectedSpecialty}` : "";
       const response = await fetch(`/api/doctors${params}`);
       if (!response.ok) throw new Error("Failed to fetch doctors");
-      return response.json() as Promise<User[]>;
+      return response.json();
     },
   });
 
@@ -69,45 +71,40 @@ export default function DoctorsPage() {
     (doctor.specialty && doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleBookAppointment = (doctor: User) => {
-    // Implementation handled by AppointmentModal component
-  };
+  /**
+   * REVOLUTION: Simplified action for in-app video/audio call initiation.
+   * This should trigger navigation to the messages page with the doctor pre-selected,
+   * and possibly a flag to initiate a call, similar to how the messages page is set up.
+   * For now, it shows a toast, expecting the navigation logic to be implemented later.
+   */
+  const handleInitiateVideoCall = useCallback((doctor: User) => {
+    // In a full implementation, this would navigate to the MessagesPage with doctor ID and a 'call' flag:
+    // router.push(`/messages?doctor=${doctor.id}&action=video-call`); 
+    
+    toast({
+      title: "Initiating Video Call...",
+      description: `Attempting to start a video call with Dr. ${doctor.name}. You will be redirected to the chat window.`,
+      variant: "default",
+    });
+  }, [toast]);
 
-  const handleMessage = (doctor: User) => {
-    // Implementation handled by ChatModal component
-  };
-
-  const handleCall = (doctor: User) => {
-    if (doctor.phone) {
-      window.open(`tel:${doctor.phone}`, '_blank');
-      toast({
-        title: "Calling...",
-        description: `Dialing ${doctor.name} at ${doctor.phone}`,
-      });
-    } else {
-      toast({
-        title: "Call Unavailable",
-        description: "Phone number not available for this doctor.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const renderRating = (rating: number) => {
+  const renderRating = (rating: number | undefined) => {
+    if (typeof rating !== 'number') return null;
+    const roundedRating = Math.round(rating);
     return (
       <div className="flex items-center space-x-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
             className={`h-4 w-4 ${
-              star <= rating
+              star <= roundedRating
                 ? "fill-yellow-400 text-yellow-400"
                 : "text-gray-300 dark:text-gray-600"
             }`}
           />
         ))}
         <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
-          ({rating}/5)
+          ({rating.toFixed(1)}/5)
         </span>
       </div>
     );
@@ -137,13 +134,13 @@ export default function DoctorsPage() {
                     placeholder="Search doctors by name or specialty..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 focus-visible:ring-purple-500"
                   />
                 </div>
               </div>
               <div className="w-full sm:w-48">
                 <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-                  <SelectTrigger>
+                  <SelectTrigger className="focus:ring-purple-500">
                     <SelectValue placeholder="All Specialties" />
                   </SelectTrigger>
                   <SelectContent>
@@ -163,7 +160,7 @@ export default function DoctorsPage() {
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+              <Card key={i} className="animate-pulse dark:bg-gray-800/50">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full" />
@@ -186,35 +183,38 @@ export default function DoctorsPage() {
         {!isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredDoctors.map((doctor) => (
-              <Card key={doctor.id} className="hover:shadow-lg transition-shadow duration-200">
+              <Card key={doctor.id} className="hover:shadow-xl transition-shadow duration-300 dark:bg-gray-800">
                 <CardHeader className="pb-4">
                   <div className="flex items-center space-x-4">
-                    <Avatar className="h-16 w-16">
+                    <Avatar className="h-16 w-16 flex-shrink-0">
                       <AvatarImage 
-                        src={doctor.profilePicture || `https://media.istockphoto.com/id/2077095666/vector/default-placeholder-doctor-portrait-photo-avatar-on-gray-background-greyscale-healthcare.jpg?s=612x612&w=0&k=20&c=en2o7NAtzp_udRQhckeWozkwHiXGz5KCRhTzY3Vbhdo=`} 
+                        src={doctor.profilePicture} 
                         alt={doctor.name} 
                       />
-                      <AvatarFallback className="bg-medicate-light text-white text-lg">
+                      <AvatarFallback className="bg-purple-600 text-white text-lg">
                         {doctor.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-gray-900 dark:text-gray-100">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg text-gray-900 dark:text-gray-100 truncate">
                         {doctor.name}
                       </CardTitle>
                       {doctor.specialty && (
-                        <Badge variant="secondary" className="mt-1">
+                        <Badge variant="secondary" className="mt-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 hover:bg-purple-200">
                           {doctor.specialty}
                         </Badge>
                       )}
                     </div>
 
-                    <div className="flex flex-col items-end">
+                    {/* Online/Available Status */}
+                    <div className="flex flex-col items-end flex-shrink-0">
                       <div className={`w-3 h-3 rounded-full ${
                         doctor.isAvailable ? 'bg-green-500' : 'bg-red-500'
                       }`} />
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <span className={`text-xs mt-1 ${
+                        doctor.isAvailable ? 'text-green-600' : 'text-red-600 dark:text-red-400'
+                      }`}>
                         {doctor.isAvailable ? 'Available' : 'Busy'}
                       </span>
                     </div>
@@ -223,9 +223,9 @@ export default function DoctorsPage() {
 
                 <CardContent className="space-y-4">
                   {/* Rating */}
-                  {doctor.rating && (
+                  {renderRating(doctor.rating) && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Rating</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Patient Rating</span>
                       {renderRating(doctor.rating)}
                     </div>
                   )}
@@ -233,7 +233,7 @@ export default function DoctorsPage() {
                   {/* Experience */}
                   {doctor.experience && (
                     <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                      <Clock className="h-4 w-4" />
+                      <Award className="h-4 w-4 text-purple-500" />
                       <span>{doctor.experience} years experience</span>
                     </div>
                   )}
@@ -241,56 +241,36 @@ export default function DoctorsPage() {
                   {/* License */}
                   {doctor.license && (
                     <div className="flex items-center space-x-2 text-sm">
-                      <Award className="h-4 w-4 text-medicate-primary" />
+                      <Clock className="h-4 w-4 text-purple-500" />
                       <span className="text-gray-600 dark:text-gray-400">License: {doctor.license}</span>
                     </div>
                   )}
 
-                  {/* Contact Info */}
-                  {doctor.phone && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                      <Phone className="h-4 w-4" />
-                      <span>{doctor.phone}</span>
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
+                  {/* Action Buttons (REVOLUTIONIZED) */}
                   <div className="flex space-x-2 pt-4">
                     <AppointmentModal
                       doctor={doctor}
                       trigger={
                         <Button
-                          className="flex-1 bg-medicate-primary hover:bg-medicate-dark text-white"
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-md"
                           size="sm"
                         >
                           Book Appointment
                         </Button>
                       }
                     />
-
-                    <ChatModal
-                      doctor={doctor}
-                      trigger={
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-medicate-primary text-medicate-primary hover:bg-medicate-primary hover:text-white"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
-
-                    {doctor.phone && (
-                      <Button
-                        onClick={() => handleCall(doctor)}
-                        variant="outline"
-                        size="sm"
-                        className="border-medicate-primary text-medicate-primary hover:bg-medicate-primary hover:text-white"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                    )}
+                    
+                    {/* Chat Button (uses ChatModal) */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white dark:border-purple-500 dark:text-purple-500 dark:hover:bg-purple-600 dark:hover:text-white transition-colors flex items-center gap-1"
+                      title="Open DM"
+                      onClick={() => navigate(`/messages?doctor=${doctor.id}`)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>DM</span>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -300,7 +280,7 @@ export default function DoctorsPage() {
 
         {/* No Results */}
         {!isLoading && filteredDoctors.length === 0 && (
-          <Card className="text-center py-12">
+          <Card className="text-center py-12 dark:bg-gray-800">
             <CardContent>
               <div className="text-gray-400 dark:text-gray-600 mb-4">
                 <MapPin className="h-12 w-12 mx-auto" />

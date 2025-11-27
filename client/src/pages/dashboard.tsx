@@ -5,20 +5,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Calendar, 
-  Users, 
-  FileText, 
-  AlertTriangle, 
-  Video, 
-  Upload, 
-  Heart, 
+import {
+  Calendar,
+  Users,
+  FileText,
+  AlertTriangle,
+  Video,
+  Upload,
+  Heart,
   Stethoscope,
   Pill,
   Bell,
   Star,
   CalendarDays,
-  TrendingUp
+  TrendingUp,
+
 } from "lucide-react";
 import ChatModal from "@/components/chat-modal";
 import PrescriptionModal from "@/components/prescription-modal";
@@ -64,20 +65,23 @@ export default function Dashboard() {
 
   const PatientDashboard = () => (
     <div className="space-y-8">
-      {/* Welcome Section */}
-      <Card className="card-hover">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-medicate-light dark:bg-medicate-dark rounded-full flex items-center justify-center">
-              <Heart className="h-8 w-8 text-medicate-primary" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back, {user.name}</h2>
-              <p className="text-gray-600 dark:text-gray-400">Patient ID: {user.id.slice(0, 8)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Welcome Section */}
+        <Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center space-x-4">
+      <div className="w-16 h-16 bg-medicate-light dark:bg-medicate-dark rounded-full flex items-center justify-center">
+        <Heart className="h-8 w-8 text-medicate-primary" />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back, {user?.name || "User"}</h2>
+        {/* VITAL FIX: Check if user and user.id exist before calling .slice() */}
+        <p className="text-gray-600 dark:text-gray-400">
+          Patient ID: {(user?.id || "").slice(0, 8)}
+        </p>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
       {/* Quick Stats */}
       <div className="grid md:grid-cols-4 gap-6">
@@ -244,7 +248,7 @@ export default function Dashboard() {
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Hydration Reminder</h4>
                   <p className="text-sm text-gray-700 dark:text-gray-300">Based on your activity, drink 2 more glasses of water today.</p>
                 </div>
-                
+
                 <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 rounded-lg">
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Exercise Goal</h4>
                   <p className="text-sm text-gray-700 dark:text-gray-300">You're 500 steps away from your daily goal. Keep going!</p>
@@ -461,6 +465,8 @@ export default function Dashboard() {
     </div>
   );
 
+
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background">
       {/* Header */}
@@ -492,14 +498,14 @@ export default function Dashboard() {
       </div>
 
       {/* Modals */}
-      <ChatModal 
-        isOpen={showChat} 
+      <ChatModal
+        isOpen={showChat}
         onClose={() => setShowChat(false)}
         doctorName="Dr. Dr. Khusboo Priya Singh"
         status="online"
       />
-      <PrescriptionModal 
-        isOpen={showPrescription} 
+      <PrescriptionModal
+        isOpen={showPrescription}
         onClose={() => setShowPrescription(false)}
         userRole={userRole}
       />

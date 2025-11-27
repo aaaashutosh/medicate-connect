@@ -205,17 +205,14 @@ class WebRTCService {
       this.localStream.getTracks().forEach(track => track.stop());
       this.localStream = null;
     }
-    
+
     if (this.peerConnection) {
       this.peerConnection.close();
       this.peerConnection = null;
     }
-    
-    if (this.onCallEndedCallback) {
-      this.onCallEndedCallback();
-    }
-    
-    console.log("Call ended");
+
+    // Removed onCallEndedCallback to prevent unwanted notifications
+    console.log("Ended call and cleaned up resources.");
   }
   
   // Toggle mute audio

@@ -104,7 +104,7 @@ export default function ChatModal({ doctor, trigger }: ChatModalProps) {
 
   const handleCall = () => {
     setCallType("audio");
-    setIsCallModalOpen(true);
+    setIsCallModalOpen(true);                     
   };
 
   const handleVideoCall = () => {
@@ -114,7 +114,7 @@ export default function ChatModal({ doctor, trigger }: ChatModalProps) {
 
   const handleGoToMessages = () => {
     setOpen(false);
-    navigate("/messages");
+    navigate(`/messages?doctor=${doctor.id}`);
   };
 
   return (
@@ -200,10 +200,7 @@ export default function ChatModal({ doctor, trigger }: ChatModalProps) {
       receiverId={doctor?.id || ""}
       callType={callType}
       onCallEnd={() => {
-        toast({
-          title: "Call ended",
-          description: `Your ${callType} call with ${doctor?.name || "Doctor"} has ended`,
-        });
+        // Toast notification removed to prevent disturbance
       }}
     />
     </>

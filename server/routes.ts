@@ -1,609 +1,475 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
-import { storage } from "./storage";
-import { insertUserSchema, insertAppointmentSchema, insertPrescriptionSchema, insertMessageSchema } from "@shared/schema";
+import { storage } from "./mongo-storage"; // Import the updated storage
+import { insertUserSchema, insertAppointmentSchema, insertPrescriptionSchema, insertMessageSchema, insertContactMessageSchema } from "@shared/schema";
 import { generateAIResponse } from "./gemini";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { Server as IOServer } from "socket.io";
+import { log } from "./vite";
+import { User } from "@shared/schema";
+import { Types } from "mongoose";
+
+// Map to store online users and their associated socket IDs
+const onlineUsers = new Map<string, Set<string>>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Configure multer for file uploads
-  const upload = multer({
-    dest: 'uploads/',
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
-    },
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = /jpeg|jpg|png|gif/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Only image files are allowed!'));
+    const server = createServer(app);
+    
+    // Socket.IO Setup
+    const io = new IOServer(server, {
+      cors: {
+        origin: "*", // Allow all origins for development
+        methods: ["GET", "POST"]
       }
-    }
-  });
+    });
 
-  // Ensure uploads directory exists
-  if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
-  }
+    // Configure multer for file uploads
+    const upload = multer({
+      dest: 'uploads/',
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+      },
+      fileFilter: (req, file, cb) => {
+        // Allow images, PDFs, and common document types
+        const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|xlsx|txt|mp3|mp4|mov|avi|webm/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
 
-  // File upload route
-  app.post("/api/upload/profile-picture", upload.single('profilePicture'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
-      const fileUrl = `/uploads/${req.file.filename}`;
-      res.json({ url: fileUrl });
-    } catch (error) {
-      console.error("File upload error:", error);
-      res.status(500).json({ message: "File upload failed" });
-    }
-  });
-
-  // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-      const user = await storage.getUserByEmail(email);
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      // Remove password from response
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-      
-      const user = await storage.createUser(userData);
-      const { password: _, ...userWithoutPassword } = user;
-      res.status(201).json({ user: userWithoutPassword });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // User routes
-  app.get("/api/users/:id", async (req, res) => {
-    try {
-      const user = await storage.getUser(req.params.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // User profile update route
-  app.patch("/api/users/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      // Don't allow password updates via this route
-      if (updates.password) {
-        delete updates.password;
-      }
-      
-      const user = await storage.updateUser(id, updates);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Doctors directory routes
-  app.get("/api/doctors", async (req, res) => {
-    try {
-      const { specialty } = req.query;
-
-      let doctors;
-      if (specialty && specialty !== "all") {
-        doctors = await storage.getDoctorsBySpecialty(specialty as string);
-      } else {
-        doctors = await storage.getDoctors();
-      }
-
-      // Remove passwords from response
-      const doctorsWithoutPasswords = doctors.map(({ password: _, ...doctor }) => doctor);
-      res.json(doctorsWithoutPasswords);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Admin routes
-  app.get("/api/admin/users", async (req, res) => {
-    try {
-      // TODO: Add admin authentication middleware
-      const users = await storage.getAllUsers();
-      // Remove passwords from response
-      const usersWithoutPasswords = users.map(({ password: _, ...user }) => user);
-      res.json(usersWithoutPasswords);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/admin/doctors", async (req, res) => {
-    try {
-      // TODO: Add admin authentication middleware
-      const doctorData = insertUserSchema.parse(req.body);
-      const doctor = await storage.createUser(doctorData);
-      const { password: _, ...doctorWithoutPassword } = doctor;
-      res.status(201).json(doctorWithoutPassword);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.patch("/api/admin/doctors/:id", async (req, res) => {
-    try {
-      // TODO: Add admin authentication middleware
-      const { id } = req.params;
-      const updates = req.body;
-
-      // Don't allow password updates via this route
-      if (updates.password) {
-        delete updates.password;
-      }
-
-      const doctor = await storage.updateUser(id, updates);
-
-      if (!doctor) {
-        return res.status(404).json({ message: "Doctor not found" });
-      }
-
-      const { password: _, ...doctorWithoutPassword } = doctor;
-      res.json(doctorWithoutPassword);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.delete("/api/admin/doctors/:id", async (req, res) => {
-    try {
-      // TODO: Add admin authentication middleware
-      const { id } = req.params;
-      const success = await storage.deleteUser(id);
-
-      if (!success) {
-        return res.status(404).json({ message: "Doctor not found" });
-      }
-
-      res.json({ message: "Doctor deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Dashboard routes
-  app.get("/api/dashboard/stats/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { role } = req.query;
-      
-      if (!role || (role !== "patient" && role !== "doctor")) {
-        return res.status(400).json({ message: "Invalid role" });
-      }
-      
-      const stats = await storage.getDashboardStats(userId, role as string);
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Appointment routes
-  app.get("/api/appointments/patient/:patientId", async (req, res) => {
-    try {
-      const appointments = await storage.getAppointmentsByPatient(req.params.patientId);
-      res.json(appointments);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/appointments/doctor/:doctorId", async (req, res) => {
-    try {
-      const appointments = await storage.getAppointmentsByDoctor(req.params.doctorId);
-      res.json(appointments);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/appointments/:id", async (req, res) => {
-    try {
-      const appointment = await storage.getAppointment(req.params.id);
-      if (!appointment) {
-        return res.status(404).json({ message: "Appointment not found" });
-      }
-      res.json(appointment);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/appointments", async (req, res) => {
-    try {
-      const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment(appointmentData);
-      res.status(201).json(appointment);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Payment routes
-  app.post("/api/payments/initiate", async (req, res) => {
-    try {
-      const { appointmentId } = req.body;
-
-      if (!appointmentId) {
-        return res.status(400).json({ message: "Appointment ID is required" });
-      }
-
-      // Get appointment details
-      const appointment = await storage.getAppointment(appointmentId);
-      if (!appointment) {
-        return res.status(404).json({ message: "Appointment not found" });
-      }
-
-      // Check if payment is already completed
-      if (appointment.paymentStatus === "paid") {
-        return res.status(400).json({ message: "Payment already completed" });
-      }
-
-      // eSewa test configuration
-      const merchantCode = "EPAYTEST";
-      const amount = appointment.paymentAmount || 100000; // Default to 1000 NPR in paisa
-      const taxAmount = 0;
-      const serviceCharge = 0;
-      const deliveryCharge = 0;
-      const totalAmount = amount + taxAmount + serviceCharge + deliveryCharge;
-      const productServiceCharge = 0;
-      const productDeliveryCharge = 0;
-      const successUrl = `${req.protocol}://${req.get('host')}/api/payments/verify?status=success&appointmentId=${appointmentId}`;
-      const failureUrl = `${req.protocol}://${req.get('host')}/api/payments/verify?status=failure&appointmentId=${appointmentId}`;
-      const signedFieldNames = "total_amount,transaction_uuid,product_code";
-      const secret = "8gBm/:&EnhH.1/q"; // eSewa test secret
-
-      // Generate transaction UUID
-      const transactionUuid = `txn_${appointmentId}_${Date.now()}`;
-
-      // Create signature
-      const message = `total_amount=${totalAmount},transaction_uuid=${transactionUuid},product_code=${merchantCode}`;
-      const crypto = await import('crypto');
-      const signature = crypto.createHmac('sha256', secret).update(message).digest('base64');
-
-      // eSewa payment URL
-      const paymentUrl = `https://rc-epay.esewa.com.np/api/epay/main/v2/form`;
-
-      res.json({
-        paymentUrl,
-        formData: {
-          amount: totalAmount,
-          tax_amount: taxAmount,
-          total_amount: totalAmount,
-          transaction_uuid: transactionUuid,
-          product_code: merchantCode,
-          product_service_charge: productServiceCharge,
-          product_delivery_charge: productDeliveryCharge,
-          success_url: successUrl,
-          failure_url: failureUrl,
-          signed_field_names: signedFieldNames,
-          signature
+        if (mimetype && extname) {
+          return cb(null, true);
+        } else {
+          cb(new Error('File type not supported. Allowed: images, documents, audio/video.'));
         }
-      });
-    } catch (error) {
-      console.error("Payment initiation error:", error);
-      res.status(500).json({ message: "Payment initiation failed" });
+      }
+    });
+
+    // Ensure uploads directory exists
+    if (!fs.existsSync('uploads')) {
+      fs.mkdirSync('uploads');
     }
-  });
+    
+    // Serve uploaded static files
+    app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-  app.get("/api/payments/verify", async (req, res) => {
-    try {
-      const { status, appointmentId, total_amount, transaction_uuid, product_code, signed_field_names, signature } = req.query;
-
-      if (!appointmentId) {
-        return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=no_appointment_id`);
-      }
-
-      const appointment = await storage.getAppointment(appointmentId as string);
-      if (!appointment) {
-        return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=appointment_not_found`);
-      }
-
-      if (status === "success") {
-        // Verify signature for security
-        const secret = "8gBm/:&EnhH.1/q";
-        const message = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
-        const crypto = await import('crypto');
-        const expectedSignature = crypto.createHmac('sha256', secret).update(message).digest('base64');
-
-        if (signature !== expectedSignature) {
-          console.error("Signature verification failed");
-          await storage.updateAppointmentPaymentStatus(appointmentId as string, "failed", transaction_uuid as string);
-          return res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=signature_failed`);
+    // --- FILE UPLOAD ROUTES ---
+    // File upload route for profile picture
+    app.post("/api/upload/profile-picture", upload.single('profilePicture'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded." });
         }
 
-        // Update appointment payment status
-        await storage.updateAppointmentPaymentStatus(appointmentId as string, "paid", transaction_uuid as string);
-
-        // Redirect to success page
-        res.redirect(`${req.protocol}://${req.get('host')}/?payment_success=true&appointment_id=${appointmentId}`);
-      } else {
-        // Payment failed
-        await storage.updateAppointmentPaymentStatus(appointmentId as string, "failed", transaction_uuid as string || "");
-
-        // Redirect to failure page
-        res.redirect(`${req.protocol}://${req.get('host')}/?payment_error=payment_failed&appointment_id=${appointmentId}`);
+        // Return the URL to the uploaded file
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ fileUrl });
+      } catch (error) {
+        res.status(500).json({ message: 'File upload failed.' });
       }
-    } catch (error) {
-      console.error("Payment verification error:", error);
-      res.status(500).json({ message: "Payment verification failed" });
-    }
-  });
-
-  // Prescription routes
-  app.get("/api/prescriptions/patient/:patientId", async (req, res) => {
-    try {
-      const prescriptions = await storage.getPrescriptionsByPatient(req.params.patientId);
-      res.json(prescriptions);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/prescriptions/doctor/:doctorId", async (req, res) => {
-    try {
-      const prescriptions = await storage.getPrescriptionsByDoctor(req.params.doctorId);
-      res.json(prescriptions);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/prescriptions", async (req, res) => {
-    try {
-      const prescriptionData = insertPrescriptionSchema.parse(req.body);
-      const prescription = await storage.createPrescription(prescriptionData);
-      res.status(201).json(prescription);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    });
+    
+    // File upload route for message content
+    app.post("/api/upload/message-file", upload.single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded." });
+        }
+        
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ 
+          fileUrl, 
+          fileName: req.file.originalname, 
+          fileMimeType: req.file.mimetype 
+        });
+      } catch (error) {
+        res.status(500).json({ message: 'File upload failed.' });
       }
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    });
 
-  app.patch("/api/prescriptions/:id/status", async (req, res) => {
-    try {
-      const { status } = req.body;
-      const prescription = await storage.updatePrescriptionStatus(req.params.id, status);
-      
-      if (!prescription) {
-        return res.status(404).json({ message: "Prescription not found" });
+
+    // --- USER ROUTES ---
+    app.post("/api/users", async (req, res) => {
+      try {
+        const userData = insertUserSchema.parse(req.body);
+        const newUser = await storage.createUser(userData);
+        res.status(201).json(newUser);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          res.status(400).json({ message: "Invalid user data.", errors: error.errors });
+        } else {
+          res.status(500).json({ message: "Failed to create user." });
+        }
       }
-      
-      res.json(prescription);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    });
 
-  // Message routes
-  app.get("/api/messages/:userId1/:userId2", async (req, res) => {
-    try {
-      const messages = await storage.getMessagesBetweenUsers(req.params.userId1, req.params.userId2);
-      res.json(messages);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/conversations/:userId", async (req, res) => {
-    try {
-      const conversations = await storage.getConversationsForUser(req.params.userId);
-      res.json(conversations);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/messages", async (req, res) => {
-    try {
-      const messageData = insertMessageSchema.parse(req.body);
-      const message = await storage.createMessage(messageData);
-      res.status(201).json(message);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    app.get("/api/users/:id", async (req, res) => {
+      try {
+        const user = await storage.getUser(req.params.id);
+        if (!user) {
+          return res.status(404).json({ message: "User not found." });
+        }
+        res.json(user);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch user." });
       }
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    });
 
-  app.patch("/api/messages/:id/read", async (req, res) => {
-    try {
-      const message = await storage.markMessageAsRead(req.params.id);
-      
-      if (!message) {
-        return res.status(404).json({ message: "Message not found" });
+    // --- DOCTOR ROUTES (FIXED/ADDED) ---
+    app.get("/api/doctors", async (req, res) => {
+        try {
+            const specialty = req.query.specialty as string | undefined;
+
+            let doctors;
+            if (specialty && specialty !== 'all') {
+                doctors = await storage.getDoctorsBySpecialty(specialty);
+            } else {
+                doctors = await storage.getDoctors();
+            }
+
+            res.json(doctors);
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            res.status(500).json({ message: "Failed to fetch doctors data." });
+        }
+    });
+
+    // --- PATIENT ROUTES (FOR DOCTOR'S VIEW) ---
+    app.get("/api/patients/doctor/:doctorId", async (req, res) => {
+      try {
+        // NOTE: This assumes an assignment mechanism or fetches all patients as a placeholder.
+        // A proper implementation would check appointments or a dedicated 'assignedTo' field.
+        const patients = await storage.getPatientsByDoctor(req.params.doctorId);
+        res.json(patients);
+      } catch (error) {
+        console.error("Error fetching doctor's patients:", error);
+        res.status(500).json({ message: "Failed to fetch patient data." });
       }
-      
-      res.json(message);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    });
 
-  // Notification routes
-  app.get("/api/notifications/:userId", async (req, res) => {
-    try {
-      const notifications = await storage.getNotificationsByUser(req.params.userId);
-      res.json(notifications);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
 
-  app.patch("/api/notifications/:id/read", async (req, res) => {
-    try {
-      const notification = await storage.markNotificationAsRead(req.params.id);
-      
-      if (!notification) {
-        return res.status(404).json({ message: "Notification not found" });
+    // --- APPOINTMENT ROUTES ---
+    app.post("/api/appointments", async (req, res) => {
+      try {
+        const appointmentData = insertAppointmentSchema.parse(req.body);
+        const newAppointment = await storage.createAppointment(appointmentData);
+        res.status(201).json(newAppointment);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          res.status(400).json({ message: "Invalid appointment data.", errors: error.errors });
+        } else {
+          res.status(500).json({ message: "Failed to create appointment." });
+        }
       }
-      
-      res.json(notification);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    });
 
-  // AI Chat route
-  app.post("/api/ai/chat", async (req, res) => {
-    try {
-      const { message } = req.body;
-      
-      if (!message || typeof message !== "string") {
-        return res.status(400).json({ message: "Message is required" });
+    app.get("/api/appointments/patient/:patientId", async (req, res) => {
+      try {
+        const appointments = await storage.getAppointmentsByPatient(req.params.patientId);
+        res.json(appointments);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch patient appointments." });
       }
-      
-      const response = await generateAIResponse(message);
-      res.json({ response });
-    } catch (error) {
-      console.error("AI chat error:", error);
-      res.status(500).json({ message: "AI service temporarily unavailable" });
-    }
-  });
+    });
 
-  // WebRTC Signaling Routes for Audio/Video Calls
-  app.post("/api/call/initiate", async (req, res) => {
-    try {
-      const { callerId, receiverId, callType } = req.body;
-      
-      // Verify both users exist
-      const caller = await storage.getUser(callerId);
-      const receiver = await storage.getUser(receiverId);
-      
-      if (!caller || !receiver) {
-        return res.status(404).json({ message: "User not found" });
+    app.get("/api/appointments/doctor/:doctorId", async (req, res) => {
+      try {
+        const appointments = await storage.getAppointmentsByDoctor(req.params.doctorId);
+        res.json(appointments);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch doctor appointments." });
       }
-      
-      // In a real implementation, you would use a WebSocket or similar
-      // to notify the receiver about the incoming call
-      // For now, we'll just return success
-      res.json({
-        success: true,
-        callId: `call_${Date.now()}`,
-        caller,
-        receiver,
-        callType
+    });
+
+    app.put("/api/appointments/:id/status", async (req, res) => {
+      try {
+        const updatedAppointment = await storage.updateAppointmentStatus(req.params.id, req.body.status);
+        if (!updatedAppointment) {
+          return res.status(404).json({ message: "Appointment not found." });
+        }
+        res.json(updatedAppointment);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to update appointment status." });
+      }
+    });
+
+    app.put("/api/appointments/:id/payment", async (req, res) => {
+      try {
+        const { paymentStatus, paymentRef } = req.body;
+        const updatedAppointment = await storage.updateAppointmentPaymentStatus(req.params.id, paymentStatus, paymentRef);
+        if (!updatedAppointment) {
+          return res.status(404).json({ message: "Appointment not found." });
+        }
+        res.json(updatedAppointment);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to update payment status." });
+      }
+    });
+    
+    // --- CHAT/MESSAGE ROUTES ---
+    app.post("/api/chats", async (req, res) => {
+      try {
+        const { userAId, userBId } = req.body;
+        if (!userAId || !userBId) {
+          return res.status(400).json({ message: "userAId and userBId are required." });
+        }
+
+        // Check for existing chat
+        let chat = await storage.getChatByParticipants(userAId, userBId);
+        
+        if (!chat) {
+            // Create chat if it doesn't exist
+            chat = await storage.getChatByParticipants(userAId, userBId); // Call again in case of race condition, or just create
+        }
+        
+        // Re-fetch with populated data and return
+        const fullChat = await storage.getChatsForUser(userAId);
+        const result = fullChat.find(c => c.id === chat?.id);
+
+        if (!result) {
+          return res.status(500).json({ message: "Failed to retrieve or create chat." });
+        }
+
+        res.status(201).json(result);
+      } catch (error) {
+        console.error("Error in POST /api/chats:", error);
+        res.status(500).json({ message: "Failed to create chat." });
+      }
+    });
+
+    app.get("/api/chats/:userId", async (req, res) => {
+      try {
+        const chats = await storage.getChatsForUser(req.params.userId);
+        res.json(chats);
+      } catch (error) {
+        console.error("Error in GET /api/chats/:userId:", error);
+        res.status(500).json({ message: "Failed to fetch chats." });
+      }
+    });
+
+    app.get("/api/chats/:chatId/messages", async (req, res) => {
+      try {
+        const { page = '1', limit = '50' } = req.query;
+        const messages = await storage.getMessagesByChatId(req.params.chatId, parseInt(page as string), parseInt(limit as string));
+        res.json(messages);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch messages." });
+      }
+    });
+    
+    // --- GEMINI AI ROUTE ---
+    app.post("/api/ai/diagnose", async (req, res) => {
+        try {
+            const { symptoms } = req.body;
+            if (!symptoms) {
+                return res.status(400).json({ message: "Symptoms are required." });
+            }
+            
+            const response = await generateAIResponse(symptoms);
+            res.json({ diagnosis: response });
+        } catch (error) {
+            res.status(500).json({ message: "AI diagnosis failed." });
+        }
+    });
+    
+    // --- SOCKET.IO CONNECTION HANDLING ---
+    io.on("connection", (socket) => {
+      const userId = socket.handshake.query.userId as string;
+      if (userId) {
+        // Add user to the online users map
+        if (!onlineUsers.has(userId)) {
+          onlineUsers.set(userId, new Set());
+        }
+        onlineUsers.get(userId)?.add(socket.id);
+        
+        // Broadcast presence update to everyone
+        io.emit('presence_update', { userId, isOnline: true });
+        
+        log(`User ${userId} connected. Total connections for user: ${onlineUsers.get(userId)?.size}`);
+      }
+
+      socket.on("disconnect", () => {
+        if (userId) {
+          const sockets = onlineUsers.get(userId);
+          sockets?.delete(socket.id);
+
+          if (sockets?.size === 0) {
+            onlineUsers.delete(userId);
+            // Broadcast presence update (offline)
+            io.emit('presence_update', { userId, isOnline: false });
+          }
+          log(`User ${userId} disconnected. Remaining connections: ${sockets?.size || 0}`);
+        }
       });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/call/offer", async (req, res) => {
-    try {
-      const { callId, offer, senderId, receiverId } = req.body;
       
-      // In a real implementation, you would use a WebSocket or similar
-      // to send the offer to the receiver
-      // For now, we'll just return success
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+      // Handle incoming messages
+      socket.on('message', async (messageData: { senderId: string, receiverId: string, chatId: string, content: string, messageType: 'text' | 'image' | 'voice' | 'file' | 'report', fileUrl?: string, fileMimeType?: string }) => {
+        try {
+          // 1. Persist the message
+          const savedMessage = await storage.saveMessage(messageData);
 
-  app.post("/api/call/answer", async (req, res) => {
-    try {
-      const { callId, answer, senderId, receiverId } = req.body;
+          // 2. Broadcast to the chat room (or to both users' specific rooms/sockets)
+          const message = savedMessage.toObject() as User;
+
+          // Emit the message back to the sender (to update their UI with the final persisted ID/timestamp)
+          io.to(socket.id).emit('message', message);
+          
+          // Emit to the receiver(s)
+          const receiverSockets = onlineUsers.get(message.receiverId);
+          if (receiverSockets) {
+            for (const s of receiverSockets) {
+              io.to(s).emit('message', message);
+            }
+          }
+          
+          // Force a chat list refresh for the receiver
+          if (receiverSockets) {
+             receiverSockets.forEach(s => io.to(s).emit('refresh_chats'));
+          }
+
+        } catch (err) {
+          console.error('Socket message error', err);
+          io.to(socket.id).emit('error', 'Failed to send message.');
+        }
+      });
+
+      // Handle typing indicator
+      socket.on('typing', ({ chatId, senderId, receiverId, isTyping }) => {
+        const receiverSockets = onlineUsers.get(receiverId);
+        if (receiverSockets) {
+          for (const s of receiverSockets) {
+            io.to(s).emit('typing', { chatId, senderId, isTyping });
+          }
+        }
+      });
       
-      // In a real implementation, you would use a WebSocket or similar
-      // to send the answer to the caller
-      // For now, we'll just return success
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+      // Handle message read status
+      socket.on('mark_as_read', async ({ chatId, senderId, receiverId }) => {
+        try {
+          await storage.markMessagesAsRead(chatId, receiverId);
+          
+          // Notify the sender (the one whose messages were read)
+          const senderSockets = onlineUsers.get(senderId);
+          if (senderSockets) {
+            for (const s of senderSockets) {
+              io.to(s).emit('messages_read', { chatId, readerId: receiverId });
+            }
+          }
+        } catch (err) {
+          console.error('Mark as read error', err);
+        }
+      });
 
-  app.post("/api/call/ice-candidate", async (req, res) => {
-    try {
-      const { callId, candidate, senderId, receiverId } = req.body;
+      // --- WebRTC signaling ---
+      socket.on('call_offer', ({ to, offer, callId, from, callType }) => {
+        const sockets = onlineUsers.get(to);
+        if (!sockets) {
+            io.to(socket.id).emit('call_failed', { message: 'Receiver is offline.' });
+            return;
+        }
+        for (const s of sockets) {
+          io.to(s).emit('call_offer', { from, offer, callId, callType });
+        }
+      });
+
+      socket.on('call_answer', ({ to, answer, callId, from }) => {
+        const sockets = onlineUsers.get(to);
+        if (!sockets) return;
+        for (const s of sockets) {
+          io.to(s).emit('call_answer', { from, answer, callId });
+        }
+      });
+
+      socket.on('ice_candidate', ({ to, candidate, from, callId }) => {
+        const sockets = onlineUsers.get(to);
+        if (!sockets) return;
+        for (const s of sockets) {
+          io.to(s).emit('ice_candidate', { from, candidate, callId });
+        }
+      });
       
-      // In a real implementation, you would use a WebSocket or similar
-      // to send the ICE candidate to the other peer
-      // For now, we'll just return success
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+      socket.on('call_end', ({ to, callId }) => {
+        const sockets = onlineUsers.get(to);
+        if (!sockets) return;
+        for (const s of sockets) {
+          io.to(s).emit('call_end', { callId });
+        }
+      });
+      // ... more socket handlers
+    });
+    
+    // --- PRESCRIPTION ROUTES ---
+    app.post("/api/prescriptions", async (req, res) => {
+      try {
+        const prescriptionData = insertPrescriptionSchema.parse(req.body);
+        const newPrescription = await storage.createPrescription(prescriptionData);
+        res.status(201).json(newPrescription);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          res.status(400).json({ message: "Invalid prescription data.", errors: error.errors });
+        } else {
+          res.status(500).json({ message: "Failed to create prescription." });
+        }
+      }
+    });
 
-  app.post("/api/call/end", async (req, res) => {
-    try {
-      const { callId, userId } = req.body;
-      
-      // In a real implementation, you would use a WebSocket or similar
-      // to notify the other participant that the call has ended
-      // For now, we'll just return success
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    app.get("/api/prescriptions/patient/:patientId", async (req, res) => {
+      try {
+        const prescriptions = await storage.getPrescriptionsByPatient(req.params.patientId);
+        res.json(prescriptions);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch patient prescriptions." });
+      }
+    });
 
-  // Serve uploaded files statically
-  app.use('/uploads', express.static('uploads'));
+    app.get("/api/prescriptions/doctor/:doctorId", async (req, res) => {
+      try {
+        const prescriptions = await storage.getPrescriptionsByDoctor(req.params.doctorId);
+        res.json(prescriptions);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch doctor prescriptions." });
+      }
+    });
 
-  const httpServer = createServer(app);
-  return httpServer;
+    // --- NOTIFICATION ROUTES ---
+    app.get("/api/notifications/user/:userId", async (req, res) => {
+      try {
+        const notifications = await storage.getNotificationsByUserId(req.params.userId);
+        res.json(notifications);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch notifications." });
+      }
+    });
+
+    app.put("/api/notifications/:id/read", async (req, res) => {
+      try {
+        const updatedNotification = await storage.markNotificationAsRead(req.params.id);
+        if (!updatedNotification) {
+          return res.status(404).json({ message: "Notification not found." });
+        }
+        res.json(updatedNotification);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to update notification status." });
+      }
+    });
+    
+    // --- CONTACT MESSAGE ROUTE ---
+    app.post("/api/contact", async (req, res) => {
+      try {
+        const messageData = insertContactMessageSchema.parse(req.body);
+        const newContactMessage = await storage.createContactMessage(messageData);
+        res.status(201).json(newContactMessage);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          res.status(400).json({ message: "Invalid contact message data.", errors: error.errors });
+        } else {
+          res.status(500).json({ message: "Failed to send contact message." });
+        }
+      }
+    });
+
+
+    return server;
 }

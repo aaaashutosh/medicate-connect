@@ -2,10 +2,43 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { connectToDatabase } from "./database";
+// 🛑 CRITICAL FIX: Import the UserModel for seeding
+import { User as UserModel } from "./models"; 
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// -----------------------------------------------------------------
+// 🛑 CRITICAL FIX: DATA SEEDING FUNCTION
+// -----------------------------------------------------------------
+async function seedSampleDoctors() {
+  // Check if a doctor record already exists to prevent duplicate seeding
+  const existingDoctor = await UserModel.findOne({ role: 'doctor' });
+  
+  if (!existingDoctor) {
+    const sampleDoctor = new UserModel({
+      email: "dr.gregory.house@clinic.com",
+      password: "password123", // Use a placeholder, ensure this is hashed in a production environment
+      role: "doctor",
+      name: "Dr. Gregory House",
+      phone: "+1-555-1234",
+      profilePicture: "https://i.imgur.com/placeholder-dr.jpg", 
+      specialty: "Infectious Disease Specialist",
+      license: "MD-42069",
+      experience: 15,
+      rating: 4.8,
+      isAvailable: true,
+    });
+    
+    await sampleDoctor.save();
+    log("Database successfully seeded with one sample doctor: Dr. Gregory House.");
+  } else {
+    log("Doctor data already exists. Skipping seed.");
+  }
+}
+// -----------------------------------------------------------------
+
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -40,6 +73,9 @@ app.use((req, res, next) => {
 (async () => {
   // Connect to MongoDB
   await connectToDatabase();
+  
+  // 🛑 CRITICAL FIX: Call the seeding function here after connection
+  await seedSampleDoctors(); 
 
   const server = await registerRoutes(app);
 

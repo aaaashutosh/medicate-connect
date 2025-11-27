@@ -114,11 +114,10 @@ export default function CallModal({
   const endCall = () => {
     setCallStatus("ended");
     webRTCService.endCall();
-    
-    setTimeout(() => {
-      onCallEnd();
-      onClose();
-    }, 1000);
+
+    // Immediately call onCallEnd and close without delay
+    onCallEnd();
+    onClose();
   };
   
   const formatTime = (seconds: number) => {

@@ -8,7 +8,9 @@ import {
   type Message,
   type InsertMessage,
   type Notification,
-  type InsertNotification
+  type InsertNotification,
+  type ContactMessage,
+  type InsertContactMessage
 } from "@shared/schema";
 import { mongoStorage } from "./mongo-storage";
 
@@ -16,6 +18,7 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserWithPassword(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   getDoctors(): Promise<User[]>;
@@ -39,6 +42,10 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message | undefined>;
 
+  // Chats
+  createChat(participants: string[]): Promise<{ id: string, participants: string[], lastMessage?: string }>;
+  getChatsForUser(userId: string): Promise<Array<{ id: string, participants: User[], lastMessage?: Message }>>;
+
   // Notifications
   getNotificationsByUser(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -46,6 +53,11 @@ export interface IStorage {
 
   // Dashboard stats
   getDashboardStats(userId: string, role: string): Promise<any>;
+
+  // Contact Messages
+  createContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
+  getContactMessages(): Promise<ContactMessage[]>;
+  updateContactMessageStatus(id: string, status: string): Promise<ContactMessage | undefined>;
 }
 
 // Use MongoDB storage instead of in-memory storage
