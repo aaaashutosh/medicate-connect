@@ -1,6 +1,6 @@
 # MedicateConnect
 
-A comprehensive telemedicine platform that connects patients with healthcare providers through an intuitive web application. Built with modern web technologies for seamless healthcare management.
+A comprehensive telemedicine platform that connects patients with healthcare providers through an intuitive web application. Version 2 includes advanced messaging and video/audio call integration for enhanced patient-doctor communication. Built with modern web technologies for seamless healthcare management.
 
 ## Features
 

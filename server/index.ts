@@ -34,7 +34,7 @@ async function seedSampleDoctors() {
     await sampleDoctor.save();
     log("Database successfully seeded with one sample doctor: Dr. Gregory House.");
   } else {
-    log("Doctor data already exists. Skipping seed.");
+    log("Connected to server");
   }
 }
 // -----------------------------------------------------------------

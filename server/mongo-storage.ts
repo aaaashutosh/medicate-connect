@@ -21,6 +21,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  getAllUsers(): Promise<User[]>;
   getDoctors(): Promise<User[]>;
   getDoctorsBySpecialty(specialty: string): Promise<User[]>;
   getPatientsByDoctor(doctorId: string): Promise<User[]>;
@@ -113,6 +115,16 @@ export class MongoStorage implements IStorage {
         // For a simple implementation, we can fetch all users with role 'patient'.
         const patients = await UserModel.find({ role: 'patient' }).lean();
         return patients.map(mapToUser);
+    }
+
+    async getAllUsers(): Promise<User[]> {
+        const users = await UserModel.find({}).lean();
+        return users.map(mapToUser);
+    }
+
+    async deleteUser(id: string): Promise<boolean> {
+        const result = await UserModel.findByIdAndDelete(id);
+        return !!result;
     }
 
     // --- Appointment Methods ---

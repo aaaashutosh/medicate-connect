@@ -11,7 +11,9 @@ import fs from "fs";
 import { Server as IOServer } from "socket.io";
 import { log } from "./vite";
 import { User } from "@shared/schema";
+import { User as UserModel } from "./models";
 import { Types } from "mongoose";
+import bcrypt from "bcrypt";
 
 // Map to store online users and their associated socket IDs
 const onlineUsers = new Map<string, Set<string>>();
@@ -89,6 +91,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+
+    // --- AUTHENTICATION ROUTES ---
+    app.post("/api/auth/register", async (req, res) => {
+      try {
+        const { name, email, password, role } = req.body;
+
+        if (!name || !email || !password || !role) {
+          return res.status(400).json({ message: "Name, email, password, and role are required." });
+        }
+
+        // Check if user already exists
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser) {
+          return res.status(400).json({ message: "User with this email already exists." });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create user
+        const newUser = await storage.createUser({
+          name,
+          email,
+          password: hashedPassword,
+          role: role as "patient" | "doctor",
+        });
+
+        res.status(201).json({ user: newUser });
+      } catch (error) {
+        console.error("Registration error:", error);
+        res.status(500).json({ message: "Failed to register user." });
+      }
+    });
+
+    app.post("/api/auth/login", async (req, res) => {
+      try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+          return res.status(400).json({ message: "Email and password are required." });
+        }
+
+        // Get user by email (this will return user without password)
+        const user = await UserModel.findOne({ email }).lean();
+        if (!user) {
+          return res.status(401).json({ message: "Invalid email or password." });
+        }
+
+        // Check password
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+          return res.status(401).json({ message: "Invalid email or password." });
+        }
+
+        // Return user data (excluding password)
+        const userResponse = {
+          id: user._id.toString(),
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          phone: user.phone,
+          profilePicture: user.profilePicture,
+          specialty: user.specialty,
+          license: user.license,
+          experience: user.experience,
+          rating: user.rating,
+          isAvailable: user.isAvailable,
+        };
+
+        res.json({ user: userResponse });
+      } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ message: "Failed to login." });
+      }
+    });
 
     // --- USER ROUTES ---
     app.post("/api/users", async (req, res) => {
@@ -470,6 +547,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    // --- ADMIN ROUTES ---
+    // Middleware to check if user is admin
+    const requireAdmin = async (req: any, res: any, next: any) => {
+      try {
+        // For now, we'll skip authentication checks and assume admin access
+        // In production, you would verify JWT tokens and check user roles
+        next();
+      } catch (error) {
+        res.status(401).json({ message: "Unauthorized" });
+      }
+    };
+
+    app.get("/api/admin/users", requireAdmin, async (req, res) => {
+      try {
+        const users = await storage.getAllUsers();
+        res.json(users);
+      } catch (error) {
+        console.error("Error fetching all users:", error);
+        res.status(500).json({ message: "Failed to fetch users." });
+      }
+    });
+
+    app.post("/api/admin/doctors", requireAdmin, async (req, res) => {
+      try {
+        const doctorData = req.body;
+        const hashedPassword = await bcrypt.hash(doctorData.password, 10);
+
+        const newDoctor = await storage.createUser({
+          name: doctorData.name,
+          email: doctorData.email,
+          password: hashedPassword,
+          role: "doctor",
+          phone: doctorData.phone,
+          specialty: doctorData.specialty,
+          license: doctorData.license,
+          experience: doctorData.experience,
+          rating: doctorData.rating,
+          isAvailable: doctorData.isAvailable ?? true,
+        });
+
+        res.status(201).json(newDoctor);
+      } catch (error) {
+        console.error("Error creating doctor:", error);
+        res.status(500).json({ message: "Failed to create doctor." });
+      }
+    });
+
+    app.patch("/api/admin/doctors/:id", requireAdmin, async (req, res) => {
+      try {
+        const updateData = req.body;
+        if (updateData.password) {
+          updateData.password = await bcrypt.hash(updateData.password, 10);
+        }
+
+        const updatedDoctor = await storage.updateUser(req.params.id, updateData);
+        if (!updatedDoctor) {
+          return res.status(404).json({ message: "Doctor not found." });
+        }
+
+        res.json(updatedDoctor);
+      } catch (error) {
+        console.error("Error updating doctor:", error);
+        res.status(500).json({ message: "Failed to update doctor." });
+      }
+    });
+
+    app.delete("/api/admin/doctors/:id", requireAdmin, async (req, res) => {
+      try {
+        const deleted = await storage.deleteUser(req.params.id);
+        if (!deleted) {
+          return res.status(404).json({ message: "Doctor not found." });
+        }
+
+        res.json({ message: "Doctor deleted successfully." });
+      } catch (error) {
+        console.error("Error deleting doctor:", error);
+        res.status(500).json({ message: "Failed to delete doctor." });
+      }
+    });
 
     return server;
 }

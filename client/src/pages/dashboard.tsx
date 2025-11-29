@@ -19,7 +19,24 @@ import {
   Star,
   CalendarDays,
   TrendingUp,
-
+  Clock,
+  DollarSign,
+  Activity,
+  User,
+  MessageSquare,
+  Phone,
+  Zap,
+  Download,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Play,
+  BarChart3,
+  Timer,
+  Shield,
+  Target,
+  Moon,
+  Sun,
 } from "lucide-react";
 import ChatModal from "@/components/chat-modal";
 import PrescriptionModal from "@/components/prescription-modal";
@@ -63,204 +80,6 @@ export default function Dashboard() {
     return null;
   }
 
-  const PatientDashboard = () => (
-    <div className="space-y-8">
-        {/* Welcome Section */}
-        <Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center space-x-4">
-      <div className="w-16 h-16 bg-medicate-light dark:bg-medicate-dark rounded-full flex items-center justify-center">
-        <Heart className="h-8 w-8 text-medicate-primary" />
-      </div>
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back, {user?.name || "User"}</h2>
-        {/* VITAL FIX: Check if user and user.id exist before calling .slice() */}
-        <p className="text-gray-600 dark:text-gray-400">
-          Patient ID: {(user?.id || "").slice(0, 8)}
-        </p>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-
-      {/* Quick Stats */}
-      <div className="grid md:grid-cols-4 gap-6">
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : (stats as any)?.upcomingAppointments || 0}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Upcoming Appointments</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
-                <Pill className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : (stats as any)?.activePrescriptions || 0}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active Prescriptions</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-medicate-light dark:bg-medicate-dark rounded-xl flex items-center justify-center">
-                <FileText className="h-6 w-6 text-medicate-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : (stats as any)?.healthReports || 0}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Health Reports</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : (stats as any)?.alerts || 0}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Health Alerts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Appointments & Actions */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Quick Actions */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                <Button 
-                  className="btn-primary p-4 h-auto justify-start text-left"
-                  onClick={() => setShowChat(true)}
-                >
-                  <Video className="h-5 w-5 mr-3" />
-                  Book Consultation
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
-                >
-                  <Upload className="h-5 w-5 mr-3" />
-                  Upload Report
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Appointments */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Appointments</h3>
-              <div className="space-y-4">
-                {appointmentsLoading ? (
-                  <p className="text-gray-500 dark:text-gray-400">Loading appointments...</p>
-                ) : appointments && Array.isArray(appointments) && appointments.length > 0 ? (
-                  appointments.slice(0, 3).map((appointment: any) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                      <div className="w-12 h-12 bg-medicate-primary rounded-full flex items-center justify-center">
-                        <Stethoscope className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Khusboo Priya Singh</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{appointment.reason}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500">
-                          {new Date(appointment.date).toLocaleDateString()} at {new Date(appointment.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </p>
-                      </div>
-                      <Badge variant={appointment.status === "completed" ? "default" : "secondary"}>
-                        {appointment.status}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No appointments found</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Notifications */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Notifications</h3>
-              <div className="space-y-3">
-                {notificationsLoading ? (
-                  <p className="text-gray-500 dark:text-gray-400">Loading notifications...</p>
-                ) : notifications && notifications.length > 0 ? (
-                  notifications.slice(0, 3).map((notification: any) => (
-                    <div key={notification.id} className="flex items-start space-x-3 p-3 bg-medicate-light dark:bg-medicate-dark rounded-lg">
-                      <Bell className="h-4 w-4 text-medicate-primary mt-1" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">{notification.message}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                          {new Date(notification.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No notifications</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Health Tips */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">AI Health Tips</h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-gradient-to-r from-medicate-light to-purple-50 dark:from-medicate-dark dark:to-purple-900 rounded-lg">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Hydration Reminder</h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">Based on your activity, drink 2 more glasses of water today.</p>
-                </div>
-
-                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 rounded-lg">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Exercise Goal</h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">You're 500 steps away from your daily goal. Keep going!</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-
   const DoctorDashboard = () => (
     <div className="space-y-8">
       {/* Welcome Section */}
@@ -289,14 +108,14 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : stats?.todayAppointments || 0}
+                  {statsLoading ? "..." : (stats as any)?.todayAppointments || 0}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Today's Appointments</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="card-hover">
           <CardContent className="p-6">
             <div className="flex items-center space-x-4">
@@ -305,14 +124,14 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : stats?.totalPatients || 0}
+                  {statsLoading ? "..." : (stats as any)?.totalPatients || 0}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Patients</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="card-hover">
           <CardContent className="p-6">
             <div className="flex items-center space-x-4">
@@ -321,14 +140,14 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : stats?.prescriptionsThisWeek || 0}
+                  {statsLoading ? "..." : (stats as any)?.prescriptionsThisWeek || 0}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Prescriptions This Week</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="card-hover">
           <CardContent className="p-6">
             <div className="flex items-center space-x-4">
@@ -337,7 +156,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {statsLoading ? "..." : stats?.rating || "N/A"}
+                  {statsLoading ? "..." : (stats as any)?.rating || "N/A"}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Patient Rating</p>
               </div>
@@ -360,8 +179,8 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {appointmentsLoading ? (
                   <p className="text-gray-500 dark:text-gray-400">Loading schedule...</p>
-                ) : appointments && appointments.length > 0 ? (
-                  appointments.slice(0, 3).map((appointment: any) => (
+                ) : appointments && Array.isArray(appointments) && (appointments as any[]).length > 0 ? (
+                  (appointments as any[]).slice(0, 3).map((appointment: any) => (
                     <div key={appointment.id} className="flex items-center space-x-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                       <div className="text-center">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -377,8 +196,8 @@ export default function Dashboard() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">{appointment.reason}</p>
                       </div>
                       <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="btn-primary"
                           onClick={() => setShowChat(true)}
                         >
@@ -402,22 +221,22 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
               <div className="grid md:grid-cols-3 gap-4">
-                <Button 
+                <Button
                   className="btn-primary p-4 h-auto justify-start text-left"
                   onClick={() => setShowPrescription(true)}
                 >
                   <Pill className="h-5 w-5 mr-3" />
                   New Pill
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
                 >
                   <FileText className="h-5 w-5 mr-3" />
                   Patient Records
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
                 >
                   <TrendingUp className="h-5 w-5 mr-3" />
@@ -465,7 +284,339 @@ export default function Dashboard() {
     </div>
   );
 
+  const PatientDashboard = () => (
+    <div className="space-y-8">
+        {/* Welcome Section */}
+        <Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center space-x-4">
+      <div className="w-16 h-16 bg-medicate-light dark:bg-medicate-dark rounded-full flex items-center justify-center">
+        <Heart className="h-8 w-8 text-medicate-primary" />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back, {user?.name || "User"}</h2>
+        {/* VITAL FIX: Check if user and user.id exist before calling .slice() */}
+        <p className="text-gray-600 dark:text-gray-400">
+          Patient ID: {(user?.id || "").slice(0, 8)}
+        </p>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
+      {/* Quick Stats */}
+      <div className="grid md:grid-cols-5 gap-6">
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.upcomingAppointments || 0}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Upcoming Appointments</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
+                <Pill className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.activePrescriptions || 0}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Active Prescriptions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-medicate-light dark:bg-medicate-dark rounded-xl flex items-center justify-center">
+                <FileText className="h-6 w-6 text-medicate-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.healthReports || 0}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Health Reports</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.alerts || 0}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Health Alerts</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
+                <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.lastConsultation ? new Date((stats as any).lastConsultation).toLocaleDateString() : "N/A"}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Last Consultation</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Additional Stats Row */}
+      <div className="grid md:grid-cols-5 gap-6">
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center">
+                <User className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.primaryDoctor || "Dr. Khusboo Priya Singh"}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Primary Doctor</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-xl flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : `$${(stats as any)?.pendingBills || 0}`}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Pending Bills</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center">
+                <Bell className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.medicationReminders || 0}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Medication Reminders</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-xl flex items-center justify-center">
+                <Activity className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : (stats as any)?.dailyHealthScore || 85}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Daily Health Score</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900 rounded-xl flex items-center justify-center">
+                <Target className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {statsLoading ? "..." : `${(stats as any)?.profileCompletion || 75}%`}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Profile Completion</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Appointments & Actions */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Button
+                  className="btn-primary p-4 h-auto justify-start text-left"
+                  onClick={() => setShowChat(true)}
+                >
+                  <Video className="h-5 w-5 mr-3" />
+                  Book Consultation
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                >
+                  <Upload className="h-5 w-5 mr-3" />
+                  Upload Report
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                  onClick={() => setShowPrescription(true)}
+                >
+                  <Pill className="h-5 w-5 mr-3" />
+                  View Prescriptions
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                  onClick={() => setShowChat(true)}
+                >
+                  <MessageSquare className="h-5 w-5 mr-3" />
+                  Chat with Doctor
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                >
+                  <Phone className="h-5 w-5 mr-3" />
+                  Request Emergency Help
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                >
+                  <Shield className="h-5 w-5 mr-3" />
+                  Add Symptoms for AI Checkup
+                </Button>
+                <Button
+                  variant="outline"
+                  className="p-4 h-auto justify-start text-left border-2 border-medicate-primary text-medicate-primary hover:bg-medicate-light dark:hover:bg-medicate-dark"
+                >
+                  <Activity className="h-5 w-5 mr-3" />
+                  Track Daily Vitals
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Appointments */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Appointments</h3>
+              <div className="space-y-4">
+                {appointmentsLoading ? (
+                  <p className="text-gray-500 dark:text-gray-400">Loading appointments...</p>
+                ) : appointments && Array.isArray(appointments) && (appointments as any[]).length > 0 ? (
+                  (appointments as any[]).slice(0, 3).map((appointment: any) => (
+                    <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div className="w-12 h-12 bg-medicate-primary rounded-full flex items-center justify-center">
+                        <Stethoscope className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. Khusboo Priya Singh</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{appointment.reason}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          {new Date(appointment.date).toLocaleDateString()} at {new Date(appointment.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </p>
+                      </div>
+                      <Badge variant={appointment.status === "completed" ? "default" : "secondary"}>
+                        {appointment.status}
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">No appointments found</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Notifications */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Notifications</h3>
+              <div className="space-y-3">
+                {notificationsLoading ? (
+                  <p className="text-gray-500 dark:text-gray-400">Loading notifications...</p>
+                ) : notifications && Array.isArray(notifications) && notifications.length > 0 ? (
+                  notifications.slice(0, 3).map((notification: any) => (
+                    <div key={notification.id} className="flex items-start space-x-3 p-3 bg-medicate-light dark:bg-medicate-dark rounded-lg">
+                      <Bell className="h-4 w-4 text-medicate-primary mt-1" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{notification.message}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(notification.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">No notifications</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Health Tips */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">AI Health Tips</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-gradient-to-r from-medicate-light to-purple-50 dark:from-medicate-dark dark:to-purple-900 rounded-lg">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Hydration Reminder</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">Based on your activity, drink 2 more glasses of water today.</p>
+                </div>
+
+                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 rounded-lg">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Exercise Goal</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">You're 500 steps away from your daily goal. Keep going!</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background">
@@ -476,11 +627,11 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">Role:</span>
-              <Select value={userRole} onValueChange={(value) => setUserRole(value as "patient" | "doctor")}>
+              <Select value={userRole} onValueChange={(value: "patient" | "doctor") => setUserRole(value)}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+              <SelectContent>
                   <SelectItem value="patient">Patient</SelectItem>
                   <SelectItem value="doctor">Doctor</SelectItem>
                 </SelectContent>
@@ -499,10 +650,8 @@ export default function Dashboard() {
 
       {/* Modals */}
       <ChatModal
-        isOpen={showChat}
-        onClose={() => setShowChat(false)}
-        doctorName="Dr. Dr. Khusboo Priya Singh"
-        status="online"
+        doctor={{ id: "doctor-id", name: "Dr. Khusboo Priya Singh", email: "", role: "doctor" as const, specialty: "General", password: "", phone: null, profilePicture: null, license: null, experience: null, rating: null, isAvailable: null, createdAt: null }}
+        trigger={<div />} // This will be handled by the button
       />
       <PrescriptionModal
         isOpen={showPrescription}

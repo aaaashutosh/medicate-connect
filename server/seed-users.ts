@@ -1,5 +1,6 @@
 import { connectToDatabase } from './database';
 import { User } from './models';
+import bcrypt from 'bcrypt';
 
 const demoUsers = [
   {
@@ -42,11 +43,17 @@ async function seedDemoUsers() {
     for (const userData of demoUsers) {
       const existingUser = await User.findOne({ email: userData.email });
       if (!existingUser) {
-        const newUser = new User(userData);
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        const newUser = new User({
+          ...userData,
+          password: hashedPassword
+        });
         await newUser.save();
         console.log(`Created demo user: ${userData.name}`);
       } else {
-        console.log(`Demo user ${userData.name} already exists`);
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        await User.findOneAndUpdate({ email: userData.email }, { password: hashedPassword });
+        console.log(`Updated password for demo user: ${userData.name}`);
       }
     }
 
